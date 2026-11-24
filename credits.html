@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>源码署名与许可 · ParticleGS 源码阅读器</title>
+  <style>
+    :root { color-scheme: light; font: 1rem/1.65 "Microsoft YaHei UI", system-ui, sans-serif; color: #202b40; }
+    body { margin: 0; min-height: 100vh; background: #e8eef9; }
+    main { width: min(47rem, calc(100% - 2rem)); margin: 1.5rem auto; }
+    h1 { margin: .6rem 0 .35rem; font-size: 1.6rem; }
+    h2 { margin: 0 0 .7rem; font-size: 1.12rem; }
+    p { margin: .5rem 0; }
+    section { margin-top: 1.1rem; padding: 1rem clamp(.9rem, 3vw, 1.55rem); border: 1px solid #fff; border-radius: 18px; background: rgba(255,255,255,.64); }
+    ul { margin: 0; padding: 0; list-style: none; }
+    li { overflow-wrap: anywhere; padding: .55rem 0; }
+    li + li { border-top: 1px solid #dbe3f1; }
+    a { color: #284e91; text-underline-offset: .19em; }
+    a:focus-visible { outline: 2px solid #527ed1; outline-offset: 3px; }
+    code { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+<main>
+  <a href="index.html">返回源码阅读器</a>
+  <h1>源码署名与许可</h1>
+  <p>这是为非商业学习和研究制作的独立阅读器。代码讲解和交互示意图由阅读器提供。</p>
+
+  <section aria-labelledby="paper">
+    <h2 id="paper">论文与源码</h2>
+    <p lang="en"><cite>ParticleGS: Learning Neural Gaussian Particle Dynamics from Videos for Prior-free Physical Motion Extrapolation</cite>. CVPR 2026.</p>
+    <p lang="en">Jinsheng Quan, Qiaowei Miao, Yichao Xu, Zizhuo Lin, Ying Li, Wei Yang, Zhihui Li, Yawei Luo.</p>
+    <p><a href="https://quanjinsheng.github.io/ParticleGS/">项目页面</a> ·
+      <a href="https://openaccess.thecvf.com/content/CVPR2026/papers/Quan_ParticleGS_Learning_Neural_Gaussian_Particle_Dynamics_from_Videos_for_Prior-free_CVPR_2026_paper.pdf">论文原文</a> ·
+      <a href="https://github.com/QuanJinSheng/ParticleGS">官方源码仓库</a></p>
+    <p>源码快照 <a href="https://github.com/QuanJinSheng/ParticleGS/tree/44914198109641bb4bcc0f7fc4f552512a463189"><code>44914198109641bb4bcc0f7fc4f552512a463189</code></a>。</p>
+    <p>源码作为文本打包进 <code>sources.js</code>，保留原有版权声明和代码行。阅读器添加了中文讲解、术语提示、源码跳转和 SVG 示意图。</p>
+  </section>
+
+  <section aria-labelledby="licenses">
+    <h2 id="licenses">随附许可证</h2>
+    <ul>
+      <li><strong>ParticleGS</strong> · CC BY-NC-SA 4.0。
+        <a href="licenses/ParticleGS-CC-BY-NC-SA-4.0.txt">完整许可</a> ·
+        <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">许可摘要</a></li>
+      <li><strong>高斯光栅化</strong> · Inria 和 MPII 的 Gaussian-Splatting License。
+        <a href="licenses/Gaussian-Splatting.txt">完整许可</a> ·
+        <a href="https://github.com/QuanJinSheng/ParticleGS/tree/44914198109641bb4bcc0f7fc4f552512a463189/submodules/depth-diff-gaussian-rasterization">源码目录</a></li>
+      <li><strong>Simple-KNN 与 3DGS 衍生源码</strong> · 保留 Inria / GRAPHDECO 的源码声明。
+        <a href="licenses/Simple-KNN-Gaussian-Splatting.txt">Gaussian-Splatting License</a> ·
+        <a href="https://github.com/graphdeco-inria/gaussian-splatting">3DGS 上游</a></li>
+      <li><strong>GLM</strong> · G-Truc Creation。
+        <a href="licenses/GLM.txt">Happy Bunny / MIT 完整许可</a></li>
+      <li><strong>GLM 随附文档中的 jQuery 1.7.1 与 Sizzle</strong> · 保留 John Resig 与 The Dojo Foundation 的源码声明。
+        <a href="licenses/jQuery-1.7.1-MIT.txt">jQuery MIT 许可</a> ·
+        <a href="licenses/Sizzle.txt">Sizzle 完整许可</a></li>
+      <li><strong>PlenOctree 球谐工具</strong> · The PlenOctree Authors。
+        <a href="licenses/PlenOctree-BSD-2-Clause.txt">BSD 2-Clause 许可</a></li>
+      <li><strong>pytorch-ssim</strong> · Evan Su。随 3DGS 的损失函数实现注明来源。
+        <a href="https://github.com/Po-Hsun-Su/pytorch-ssim/blob/master/LICENSE.txt">上游 MIT 声明</a> ·
+        <a href="licenses/MIT-standard.txt">MIT 标准正文</a></li>
+    </ul>
+    <p>属于 CC BY-NC-SA 4.0 所定义的改编材料，其公开分发适用相同许可。各第三方组件继续适用各自的许可证，源码中的版权与许可声明随文本保留。</p>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,116 @@
+.mast-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: clamp(6px, 1vw, 16px);
+}
+.mast-actions .utility { margin: 0; }
+.mast-actions .visualization-launch {
+  padding: .32rem .85rem;
+  border: 1px solid var(--glass-rim);
+  background: rgba(240, 246, 255, .62);
+  color: #304780;
+  font-weight: 650;
+}
+.mast-actions .visualization-launch:hover { background: #f6f9ff; }
+.brand .credits-link {
+  flex-basis: 100%;
+  color: #354d7b;
+  font-size: .73rem;
+  line-height: 1.45;
+  text-decoration-color: #7285ac;
+  text-underline-offset: 3px;
+}
+.brand .credits-link:focus-visible { outline: 2px solid #527ed1; outline-offset: 2px; }
+
+.visualization-index {
+  width: min(54rem, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: clamp(14px, 2.5vw, 24px);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--pane-radius);
+  background: #eef3fc;
+  color: var(--ink);
+  box-shadow: 0 18px 64px rgba(32, 52, 91, .25);
+}
+.visualization-index::backdrop { background: rgba(29, 47, 85, .29); backdrop-filter: blur(4px); }
+.visualization-index header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.visualization-index h2 { margin: 0; font-size: 1.24rem; }
+.visualization-index header button {
+  padding: .26rem .76rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .66);
+  font-size: .82rem;
+}
+.visualization-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.visualization-list section {
+  padding: 11px 8px 8px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--selection-radius);
+  background: rgba(255, 255, 255, .4);
+}
+.visualization-list h3 { margin: 0 7px 5px; color: #40567e; font-size: .81rem; }
+.visualization-list ul { margin: 0; padding: 0; list-style: none; }
+.visualization-list li + li { border-top: 1px solid rgba(59, 77, 124, .10); }
+.visualization-list button {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  min-height: 50px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+.visualization-list button:hover, .visualization-list button:focus-visible { background: #e6edfc; }
+.visualization-list strong { color: #25395d; font-size: .875rem; font-weight: 650; }
+.visualization-list code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #506383;
+  font: .73rem/1.45 var(--mono);
+}
+
+.core-figure {
+  padding: 13px 13px 12px;
+  margin: 14px 0 0;
+  border: 1px solid rgba(255, 255, 255, .91);
+  border-radius: 19px;
+  background: rgba(248, 252, 255, .60);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .88), 0 3px 14px rgba(53, 75, 135, .08);
+  color: #263859;
+}
+.core-figure h2 { margin: 0 3px 5px; font-size: 1.08rem; font-weight: 680; }
+.core-figure svg { display: block; width: 100%; height: auto; overflow: visible; }
+.core-figure svg text { fill: #2b4169; font: 650 14px "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif; }
+.core-figure svg .symbol { fill: #496494; font: 650 12px var(--mono); }
+.core-figure svg .hint { fill: #4d6184; font-size: 11px; font-weight: 500; }
+.figure-target { cursor: pointer; outline: none; }
+.figure-hitbox { fill: #ebf2fc; stroke: #d9e4f5; stroke-width: 1.2; }
+.figure-target:hover .figure-hitbox, .figure-target:focus-visible .figure-hitbox, .figure-target[aria-pressed=true] .figure-hitbox {
+  fill: #e0e9fd;
+  stroke: #8198cd;
+  stroke-width: 1.65;
+}
+.figure-target:focus-visible .figure-hitbox { stroke: #34599d; stroke-width: 2.4; }
+.reading .figure-note { margin: 5px 3px 0; font-size: .78rem; color: #526582; line-height: 1.55; }
+
+@media (max-width: 650px) {
+  .mast-actions { gap: 7px; }
+  .mast-actions .visualization-launch { padding-inline: .65rem; }
+  .visualization-list { grid-template-columns: minmax(0, 1fr); }
+  .core-figure { padding-inline: 8px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .visualization-index::backdrop { backdrop-filter: none; }
+}

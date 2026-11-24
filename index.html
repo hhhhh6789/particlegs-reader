@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ParticleGS 源码阅读器</title>
+  <link rel="stylesheet" href="reader.css">
+  <link rel="stylesheet" href="decoder-diagram.css">
+  <link rel="stylesheet" href="visualizations.css">
+</head>
+<body>
+<header class="mast">
+  <div class="brand"><strong>ParticleGS</strong><span>源码阅读器</span><a class="credits-link" href="credits.html">源码署名与许可</a></div>
+  <nav id="examples" class="examples" aria-label="方法导航"></nav>
+  <div class="mast-actions">
+    <button id="open-visualizations" class="utility visualization-launch" type="button" aria-haspopup="dialog" aria-controls="visualization-index">可视化</button>
+    <button id="toggle" class="utility" aria-controls="sidebar" aria-expanded="true">收起文件</button>
+  </div>
+</header>
+<div class="workbench" id="bench">
+  <aside id="sidebar" aria-label="文件目录">
+    <div class="navtop">
+      <label for="filter">项目文件</label>
+      <input id="filter" type="search" placeholder="搜索文件或路径" autocomplete="off">
+      <details class="directory-info">
+        <summary>目录说明</summary>
+        <p id="coverage"></p>
+      </details>
+    </div>
+    <nav id="tree" aria-label="源码目录"></nav>
+
+  </aside>
+  <main>
+    <section class="lesson" aria-label="代码讲解和可视化">
+      <div id="reading" class="reading" aria-live="polite"></div>
+    </section>
+    <section class="source" aria-label="源代码">
+      <div class="sourcebar">
+        <div><strong id="path"></strong><div id="status"></div></div>
+        <form id="jump">
+          <label class="sr" for="line">行号</label>
+          <input id="line" type="number" min="1" placeholder="行号">
+          <button>跳转</button>
+        </form>
+      </div>
+      <div id="code" class="code" tabindex="0" aria-label="代码行。点击查看解释，可用上下方向键切换。"></div>
+    </section>
+  </main>
+</div>
+<dialog id="visualization-index" class="visualization-index" aria-labelledby="visualization-title">
+  <header>
+    <h2 id="visualization-title">可视化</h2>
+    <form method="dialog"><button type="submit" autofocus>关闭</button></form>
+  </header>
+  <div id="visualization-list" class="visualization-list"></div>
+</dialog>
+<script src="sources.js"></script>
+<script src="lessons.js"></script>
+<script src="project-guide.js"></script>
+<script src="project-manual.js"></script>
+<script src="project-notes.js"></script>
+<script src="project-parameters.js"></script>
+<script src="project-blocks.js"></script>
+<script src="project-collections.js"></script>
+<script src="collection-details.js"></script>
+<script src="collection-ui.js"></script>
+<script src="project-expressions.js"></script>
+<script src="parameter-ui.js"></script>
+<script src="expression-ui.js"></script>
+<script src="project-ui.js"></script>
+<script src="block-ui.js"></script>
+<script src="ode-chapter.js"></script>
+<script src="term-ui.js"></script>
+<script src="decoder-diagram.js"></script>
+<script src="core-diagrams.js"></script>
+<script src="visualizations.js"></script>
+<script src="reader.js"></script>
+</body>
+</html>
+
+
+
+

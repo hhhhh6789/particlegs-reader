@@ -1,0 +1,63 @@
+.decoder-graphic {
+  --graph-ink: #263859;
+  --graph-quiet: #556683;
+  color: var(--graph-ink);
+  padding: 15px 15px 14px;
+  margin: 15px 0;
+  border-radius: 19px;
+  background: rgba(248, 252, 255, .62);
+  border: 1px solid rgba(255,255,255,.91);
+  box-shadow: inset 0 1px rgba(255,255,255,.84), 0 4px 15px rgba(53,75,135,.07);
+  backdrop-filter: blur(16px);
+}
+.decoder-graphic h2 { margin: 0; font-size: 1.05rem; line-height: 1.4; font-weight: 680; }
+.decoder-graphic h3 { margin: 0; font-size: .79rem; font-weight: 650; }
+.decoder-graphic .diagram-head { display: flex; justify-content: space-between; align-items: center; gap: 6px 13px; flex-wrap: wrap; }
+.decoder-graphic .diagram-head small { color: var(--graph-quiet); font-size: .73rem; }
+.decoder-graphic svg { display: block; width: 100%; height: auto; overflow: visible; }
+.decoder-graphic .network-picture { margin: 10px 0 9px; }
+.decoder-graphic svg text { fill: var(--graph-ink); font-weight: 650; font-size: 14px; }
+.decoder-graphic svg .width { fill: #526785; font-size: 11px; font-family: var(--mono); }
+.decoder-graphic svg .light { fill: var(--graph-quiet); font-size: 10px; font-weight: 500; }
+.decoder-output { display: grid; grid-template-columns: 3fr 3fr 4fr 3fr; gap: 5px; margin-top: 6px; }
+.decoder-output button {
+  --block-fill: #dce9f9; --block-edge: #c3d5ed; --cell-fill: #5276aa;
+  min-width: 0; min-height: 59px;
+  background: var(--block-fill); border: 1px solid var(--block-edge);
+  border-radius: 9px; color: #344b72; padding: 6px;
+}
+.decoder-output button:nth-child(2) { --block-fill: #dceef1; --block-edge: #c4e2e5; --cell-fill: #4b8795; color: #2d626c; }
+.decoder-output button:nth-child(3) { --block-fill: #e3e7fc; --block-edge: #c9d2f1; --cell-fill: #5d72bd; }
+.decoder-output button:nth-child(4) { --block-fill: #eae4f6; --block-edge: #dcd0f0; --cell-fill: #886ca9; color: #644e81; }
+.decoder-output code { white-space: nowrap; font-weight: 700; }
+.decoder-output button[aria-pressed=true] {
+  --block-fill: #d3ddff; --block-edge: #637fc7;
+  outline: 1px solid #637fc7; outline-offset: -1px; box-shadow: inset 0 1px rgba(255,255,255,.84);
+  color: #263976;
+}
+.decoder-cells { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; margin-top: 5px; }
+.decoder-cells > span {
+  display: block; font: 620 .66rem/1.3 var(--mono); font-style: normal; color: #fff;
+  background: var(--cell-fill); border-radius: 3px; padding: 2px 0; text-align: center;
+}
+.decoder-stage { cursor: pointer; outline: none; }
+.decoder-stage-target { fill: transparent; stroke: transparent; }
+.decoder-mlp-stage .decoder-stage-target { fill: #e8eefc; stroke: #d7e1f6; }
+.decoder-stage:hover .decoder-stage-target,
+.decoder-stage:focus-visible .decoder-stage-target,
+.decoder-stage[aria-pressed=true] .decoder-stage-target {
+  fill: #dce7fe;
+  stroke: #738ac4;
+  stroke-width: 1.45px;
+}
+.decoder-graphic .decoder-detail { margin: 10px 0 0; font-size: .8rem; }
+.decoder-output button:focus-visible { outline: 2px solid #586fbd; outline-offset: 2px; }
+@media (max-width: 450px) {
+  .decoder-graphic { padding-inline: 10px; }
+  .decoder-output { grid-template-columns: 1fr 1fr; }
+}
+.decoder-graphic .shape-demo { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(100,123,176,.17); }
+.decoder-graphic .shape-demo header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px; margin-bottom: 3px; }
+.decoder-graphic .shape-demo code { color: #394d8d; font-size: .75rem; }
+.decoder-graphic .shape-demo svg text { font-size: 12px; }
+.decoder-graphic .shape-demo svg .light { font-size: 11px; }
