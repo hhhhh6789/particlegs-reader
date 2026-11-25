@@ -886,7 +886,7 @@ let proseTypes;
 
 function vagueNameMeaning(value) {
   const text = typeof value === "string" ? value : value?.description || "";
-  return /^(?:使用.+的值[。.]?$|保存本轮循环取到|代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存(?:右侧|表达式|对应语句算出的)|由 .+ 提供的值|.+，由 .+ 提供。$|写入值的|把[^。]+(?:保存到|赋给)[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
+  return /^(?:(?:值|整数|浮点数|布尔值|字符串|列表|字典|集合|元组|可选值|布尔条件|比较结果|新的列表|新的映射|中间数据|同形状的张量|修改后的列表|输出张量|数组|张量|标量|结果)\s*[。.]?$|[\w.]+ 类型的值[。.]?$|当前(?:代码段使用的中间数据|函数使用的局部数据)|组合结果中的第|(?:列表|元组|集合|字典)，是循环中逐项|循环中逐项处理的集合|由当前函数交给调用方的结果|由.*赋值所得|随对象实例保存的数据|从一组结果中取出的独立分量|(?:传给|供) .+?(?:的(?:第.+位置实参|数据)|\(\) 使用的数据)|提供给.+作为[^。]*输入|赋值的来源|参与后续张量处理|用于(?:相加|相减|相乘|相除|后续计算|比较和分支筛选)的中间值|使用.+的值[。.]?$|保存本轮循环取到|代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存(?:右侧|表达式|对应语句算出的)|由 .+ 提供的值|.+，由 .+ 提供。$|写入值的|把[^。]+(?:保存到|赋给)[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
 }
 
 function shortMeaning(value) {
@@ -919,7 +919,8 @@ function collectNameMeanings(file, first, last) {
     : /\.(?:c|cc|cpp|cu|cuh|h|hpp|inl)$/.test(path) ? Object.entries(nativeTypes) : []);
   const local = new Map();
   const variableNames = new Set();
-  const loopBindings = new Map();
+  const bindingMeanings = new Map();
+  const assignmentOrigins = new Map();
   const formalParameters = new Set();
   const keywordNames = new Set();
   const ambiguous = new Set();
@@ -1009,7 +1010,7 @@ function collectNameMeanings(file, first, last) {
   for (const [name, detail] of local) if (!names.has(name)) names.set(name, detail);
   if (path.endsWith(".py")) {
     for (const [type, meaning] of projectTypeNames()) if (!names.has(type)) names.set(type, meaning);
-    addLocalBindings(file, lines, names, variableNames, loopBindings, first, last);
+    addLocalBindings(file, lines, names, variableNames, bindingMeanings, assignmentOrigins, first, last);
     addImportedModuleNames(file, lines, names, first, last);
   }
   for (let line = first; line <= last; line++) {
@@ -1027,7 +1028,7 @@ function collectNameMeanings(file, first, last) {
       for (const [name, meaning] of Object.entries(meanings)) names.set(name, meaning);
     }
   }
-  for (const [name, meaning] of loopBindings) names.set(name, meaning);
+  for (const [name, meaning] of bindingMeanings) names.set(name, meaning);
   const gaussianOwners = {
     "train.py": ["scene.gaussians", "self.gaussians"],
     "render.py": ["gaussians"],
@@ -1075,6 +1076,14 @@ function collectNameMeanings(file, first, last) {
     const concise = formalParameters.has(name) ? parameterIdentity(description) : conciseIdentity(description);
     if (concise) {
       names.set(name, typeof current === "string" ? concise : {...current, description: concise});
+    }
+  }
+  for (const [name, source] of assignmentOrigins) {
+    const value = names.get(name);
+    if (!value || vagueNameMeaning(value)) {
+      names.set(name, {description: "这个变量的具体含义待核实。", source});
+    } else if (typeof value === "string") {
+      names.set(name, {description: value, source});
     }
   }
   return names;
@@ -1152,7 +1161,7 @@ function addImportedModuleNames(file, lines, names, first, last) {
   }
 }
 
-function addLocalBindings(file, lines, names, variableNames, loopBindings, first, last) {
+function addLocalBindings(file, lines, names, variableNames, bindingMeanings, assignmentOrigins, first, last) {
   const visible = lines.slice(first - 1, last).join(" ").matchAll(codeNames);
   const symbols = new Set();
   for (const [token] of visible) {
@@ -1166,8 +1175,9 @@ function addLocalBindings(file, lines, names, variableNames, loopBindings, first
     }
   }
   for (const name of symbols) {
-    if (!Object.hasOwn(file.bindings || {}, name)) continue;
-    const bindings = file.bindings[name].filter(([at, from, to]) =>
+    const definitions = file.bindings?.[name] || nameContextIndex.fieldBindings?.[file.path]?.[name];
+    if (!Array.isArray(definitions)) continue;
+    const bindings = definitions.filter(([at, from, to]) =>
       at >= first && at <= last || (!from || from <= first && first <= to) && at <= last
       || name.startsWith("self."));
     bindings.sort(([a, aFrom], [b, bFrom]) => (b <= last) - (a <= last) || bFrom - aFrom || b - a);
@@ -1188,8 +1198,14 @@ function addLocalBindings(file, lines, names, variableNames, loopBindings, first
     const contextId = nameContextIndex.files[file.path]?.[at]?.[name];
     const indexedMeaning = contextId === undefined ? "" : nameContextIndex.meanings[contextId];
     const definition = file.path + " · 第 " + at + " 行";
+    const assigned = nameContextIndex.assignments?.[file.path]?.[at]?.[name];
+    if (variableNames.has(name)) assignmentOrigins.set(name, definition);
+    if (Number.isInteger(assigned)) {
+      bindingMeanings.set(name, {description: nameContextIndex.meanings[assigned], source: definition});
+      continue;
+    }
     if (role === "iteration" && indexedMeaning) {
-      loopBindings.set(name, {description: indexedMeaning, source: definition});
+      bindingMeanings.set(name, {description: indexedMeaning, source: definition});
       continue;
     }
     if (names.has(name) && !vagueNameMeaning(names.get(name))) continue;

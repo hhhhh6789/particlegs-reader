@@ -9,6 +9,8 @@ const reading = element("reading");
 const sourceScopeRange = element("source-scope-range");
 const readingBack = element("reading-back");
 const readingHistory = [];
+const sourceFolds = new Map();
+const emptySourceFolds = new Set();
 let showingOverview = false;
 let activeFile, activeLine, rows = [], highlighted = [], statementEnds = new Map();
 let sourceScopes = [], sourceScopeSegments = [], currentSourceScope = null;
@@ -360,6 +362,7 @@ function navigateReader(move) {
     chapter: odeChapter && {...odeChapter},
     visualization: preferredVisualization,
     scroll: readerScroll(),
+    folds: sourceFolds.get(activeFile.path) || emptySourceFolds,
     details: Array.from(reading.querySelectorAll("details"), detail => detail.open),
   } : null;
   move(previous);
@@ -369,6 +372,7 @@ function navigateReader(move) {
     || previous.topic !== topic || previous.overview !== showingOverview
     || previous.chapter?.step !== odeChapter?.step || previous.chapter?.caller !== odeChapter?.caller
     || previous.visualization !== preferredVisualization
+    || previous.folds !== (sourceFolds.get(previous.path) || emptySourceFolds)
     || readerScroll().some((value, index) => value !== previous.scroll[index])
     || Array.from(reading.querySelectorAll("details")).some((detail, index) => detail.open !== previous.details[index]);
   if (changed) {
@@ -384,10 +388,13 @@ function returnToReadingPosition(position = readingHistory.at(-1)) {
   readingBack.disabled = !readingHistory.length;
   odeChapter = position.chapter && {...position.chapter};
   preferredVisualization = position.visualization;
+  if (position.folds.size) sourceFolds.set(position.path, position.folds);
+  else sourceFolds.delete(position.path);
   if (activeFile.path === position.path && rows.length) {
-    selectLine(position.line, false);
+    applySourceFolds();
+    selectLine(position.line, false, {reveal: false});
   } else {
-    loadFile(position.path, position.line ?? 1);
+    loadFile(position.path, position.line ?? 1, {reveal: false});
   }
   if (position.overview) showMethodOverview();
   topic = position.topic;
@@ -438,15 +445,63 @@ function sourceIndent(text) {
 function layoutSourceScopes() {
   if (!sourceScopeSegments.length) return;
   const origin = code.getBoundingClientRect().top + code.clientTop - code.scrollTop;
-  const positions = sourceScopeSegments.map(({first, last, element}) => {
+  const positions = sourceScopeSegments.map(({first, last, element, scope}) => {
+    if (rows[scope.header - 1].hidden || scope.button.getAttribute("aria-expanded") === "false") {
+      return [element];
+    }
+    while (first <= last && rows[first - 1].hidden) first++;
+    while (last >= first && rows[last - 1].hidden) last--;
+    if (first > last) return [element];
     const top = rows[first - 1].getBoundingClientRect().top;
     const end = rows[last - 1].getBoundingClientRect();
     return [element, top - origin, end.top + end.height / 2 - top];
   });
   for (const [element, top, height] of positions) {
+    element.hidden = top === undefined;
+    if (element.hidden) continue;
     element.style.top = top + "px";
     element.style.height = height + "px";
   }
+}
+
+function applySourceFolds() {
+  if (!sourceScopes.length) return;
+  const collapsed = sourceFolds.get(activeFile.path) || emptySourceFolds;
+  const changes = new Int32Array(rows.length + 1);
+  for (const {header, first, last, button, excerpt} of sourceScopes) {
+    const folded = collapsed.has(header);
+    button.setAttribute("aria-expanded", String(!folded));
+    const label = (folded ? "展开" : "折叠") + "第 " + lineRange(first, last) + " 行";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    if (folded) {
+      excerpt.dataset.folded = last - first + 1;
+      changes[first - 1]++;
+      changes[last]--;
+    } else {
+      delete excerpt.dataset.folded;
+    }
+  }
+  let depth = 0;
+  rows.forEach((row, index) => {
+    depth += changes[index];
+    row.hidden = depth > 0;
+  });
+  layoutSourceScopes();
+}
+
+function setSourceFolds(collapsed) {
+  if (collapsed.size) sourceFolds.set(activeFile.path, collapsed);
+  else sourceFolds.delete(activeFile.path);
+  applySourceFolds();
+}
+
+function toggleSourceFold(header) {
+  const collapsed = new Set(sourceFolds.get(activeFile.path));
+  if (collapsed.has(header)) collapsed.delete(header);
+  else collapsed.add(header);
+  setSourceFolds(collapsed);
+  if (rows[activeLine - 1].hidden) selectLine(header, false);
 }
 
 function mountSourceScopes(sourceLines) {
@@ -458,7 +513,14 @@ function mountSourceScopes(sourceLines) {
   for (const [header, first, last, column] of definitions) {
     if (!(1 <= header && header < first && first <= last && last <= rows.length)) continue;
     const guideColumn = Math.min(column + 1.65, indents[first - 1] - .35);
-    const scope = {header, last, segments: []};
+    const row = rows[header - 1];
+    const button = add(row.querySelector(".num"), "button", null, "source-fold-toggle");
+    button.type = "button";
+    button.onclick = event => {
+      event.stopPropagation();
+      toggleSourceFold(header);
+    };
+    const scope = {header, first, last, button, excerpt: row.querySelector(".src"), segments: []};
     // A continuation or preprocessor directive can extend left of the scope's indentation.
     let start = first;
     for (let line = first; line <= last + 1; line++) {
@@ -467,13 +529,14 @@ function mountSourceScopes(sourceLines) {
         const element = add(layer, "span", null, "source-scope-guide");
         element.style.setProperty("--scope-column", String(guideColumn));
         scope.segments.push(element);
-        sourceScopeSegments.push({first: start, last: line - 1, element});
+        sourceScopeSegments.push({first: start, last: line - 1, element, scope});
       }
       start = line + 1;
     }
-    if (scope.segments.length) sourceScopes.push(scope);
+    sourceScopes.push(scope);
   }
-  layoutSourceScopes();
+  code.classList.toggle("has-source-folds", sourceScopes.length > 0);
+  applySourceFolds();
 }
 
 function selectSourceScope() {
@@ -488,9 +551,22 @@ function selectSourceScope() {
   currentSourceScope = scope;
 }
 
-function selectLine(line, scroll) {
+function selectLine(line, scroll, {reveal = true} = {}) {
   if (!rows.length) return;
-  const current = rows[Math.min(rows.length, Math.max(1, Math.trunc(line))) - 1];
+  let current = rows[Math.min(rows.length, Math.max(1, Math.trunc(line))) - 1];
+  if (current.hidden) {
+    const number = Number(current.dataset.line);
+    const collapsed = sourceFolds.get(activeFile.path);
+    const containing = sourceScopes.filter(({header, first, last}) =>
+      collapsed.has(header) && first <= number && number <= last);
+    if (reveal) {
+      const remaining = new Set(collapsed);
+      containing.forEach(({header}) => remaining.delete(header));
+      setSourceFolds(remaining);
+    } else {
+      current = rows[containing[0].header - 1];
+    }
+  }
   activeLine = Number(current.dataset.line);
   updateOdeChapter(activeFile.path, activeLine);
   topic = odeChapter ? "ode" : topicFor(activeFile.path, activeLine);
@@ -532,7 +608,7 @@ function highlightPython(span, line, ranges = []) {
   span.append(line.slice(cursor));
 }
 
-function loadFile(path, line = 1) {
+function loadFile(path, line = 1, {reveal = true} = {}) {
   activeFile = byPath.get(path);
   statementEnds = new Map(activeFile.statements || []);
   rows = []; highlighted = [];
@@ -540,6 +616,7 @@ function loadFile(path, line = 1) {
   sourceScopeSegments = [];
   currentSourceScope = null;
   if (sourceScopeRange) sourceScopeRange.hidden = true;
+  code.classList.remove("has-source-folds");
   code.replaceChildren();
   code.scrollTop = 0;
   code.scrollLeft = 0;
@@ -579,7 +656,7 @@ function loadFile(path, line = 1) {
   });
   code.append(fragment);
   mountSourceScopes(sourceLines);
-  selectLine(line, true);
+  selectLine(line, true, {reveal});
 }
 
 function fileButton(parent, path, title) {
@@ -590,7 +667,7 @@ function fileButton(parent, path, title) {
   button.setAttribute("aria-current", String(activeFile?.path === path));
   button.onclick = () => navigateReader(() => {
     odeChapter = null;
-    loadFile(path, notes[path]?.[0][0] || 1);
+    loadFile(path, notes[path]?.[0][0] || 1, {reveal: false});
   });
 }
 
@@ -797,9 +874,12 @@ code.onclick = event => {
   if (line && !window.getSelection()?.toString()) selectLine(Number(line.dataset.line), false);
 };
 code.onkeydown = event => {
-  if (!["ArrowUp", "ArrowDown"].includes(event.key) || !rows.length) return;
+  if (event.target !== code || !["ArrowUp", "ArrowDown"].includes(event.key) || !rows.length) return;
   event.preventDefault();
-  selectLine(activeLine + (event.key === "ArrowUp" ? -1 : 1), true);
+  const step = event.key === "ArrowUp" ? -1 : 1;
+  let next = activeLine + step;
+  while (rows[next - 1]?.hidden) next += step;
+  if (rows[next - 1]) selectLine(next, true);
 };
 filterFiles();
 initializePaneSplitter();
