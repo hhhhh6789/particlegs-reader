@@ -560,7 +560,6 @@ const scopedNames = {
       "self.rotation_activation": "把内部旋转参数变成单位四元数的归一化函数。",
       "self.hyper_activation": "把特征最后一维转换成总和为 1 的权重的函数。",
       "self.scaling_inverse_activation": "把实际尺度转换回模型内部参数的函数。",
-      "self.covariance_activation": "根据高斯的尺度和旋转构造三维协方差的函数。",
       "self.opacity_activation": "把内部不透明度参数转换为零到一之间的不透明度的函数。",
       "self.inverse_opacity_activation": "把实际不透明度转换回模型内部参数的函数。",
     }],
@@ -913,6 +912,11 @@ function parameterIdentity(value) {
   return conciseIdentity(shortMeaning(meaning));
 }
 
+function functionNameMeaning(path, line) {
+  const description = expressionIndex.files[path]?.[line]?.definition?.hover;
+  return description ? {description, source: path + " · 第 " + line + " 行"} : null;
+}
+
 function collectNameMeanings(file, first, last) {
   const {path} = file;
   const names = new Map(path.endsWith(".py") ? [...Object.entries(moduleNames), ...Object.entries(knownNames)]
@@ -924,6 +928,7 @@ function collectNameMeanings(file, first, last) {
   const formalParameters = new Set();
   const keywordNames = new Set();
   const ambiguous = new Set();
+  const resolvedFunctions = new Map();
   const entries = expressionIndex.files[path] || {};
   const scope = file.symbols?.findLast(([from, to, , kind]) => kind === "函数" && from <= first && first <= to);
   const putParameter = (name, value) => {
@@ -966,11 +971,16 @@ function collectNameMeanings(file, first, last) {
     if (node.kind === "call") {
       const name = shortCallName(node.name);
       const [origin, definitionLine] = node.target || [];
-      const purpose = expressionIndex.files[origin]?.[definitionLine]?.definition?.purpose || node.purpose || node.result;
-      remember(name, purpose);
-      if (origin && !names.has(name)) {
+      const definition = functionNameMeaning(origin, definitionLine);
+      const purpose = node.purpose || node.result;
+      if (definition && simpleName.test(name)) {
+        resolvedFunctions.set(name, definition);
+      } else {
+        remember(name, purpose);
         const detail = shortMeaning(purpose);
-        if (detail) names.set(name, {description: detail, source: origin + " · 第 " + definitionLine + " 行"});
+        if (origin && detail && !names.has(name)) {
+          names.set(name, {description: detail, source: origin + " · 第 " + definitionLine + " 行"});
+        }
       }
       const member = name.split(/\.|::|->/).at(-1);
       if (member !== name && node.receiver?.length) remember(member, node.purpose || node.result);
@@ -988,6 +998,11 @@ function collectNameMeanings(file, first, last) {
   }
   for (let line = first; line <= last; line++) {
     const entry = entries[line];
+    if (entry?.functionValue) {
+      const [name, target] = entry.functionValue;
+      const meaning = functionNameMeaning(...target);
+      if (meaning) resolvedFunctions.set(name, meaning);
+    }
     const written = projectManual[path]?.[line];
     const example = lineGroup(path, line)?.[3].find(([start]) => start === line)?.[4];
     const parameterGuidance = written?.parameters || example?.parameters;
@@ -1055,8 +1070,11 @@ function collectNameMeanings(file, first, last) {
   const declaration = entries[first]?.definition;
   if (declaration) {
     const name = declaration.name.split(/\.|::/).at(-1);
-    const meaning = shortMeaning(declaration.purpose);
-    if (meaning) names.set(name, {description: meaning, source: path + " · 第 " + first + " 行"});
+    const meaning = functionNameMeaning(path, first);
+    if (meaning) {
+      resolvedFunctions.set(name, meaning);
+      resolvedFunctions.set(declaration.name, meaning);
+    }
   }
   for (let line = first; line <= last; line++) {
     for (const [name, [canonical, path, definitionLine]] of Object.entries(file.types?.[line] || {})) {
@@ -1086,6 +1104,7 @@ function collectNameMeanings(file, first, last) {
       names.set(name, {description: value, source});
     }
   }
+  for (const [name, meaning] of resolvedFunctions) names.set(name, meaning);
   return names;
 }
 
@@ -1114,7 +1133,6 @@ function importMeaning(origin, importingFile, seen = new Set()) {
   if (!origin || seen.has(origin)) return null;
   seen.add(origin);
   const known = knownNames[origin] || importedMembers[origin] || moduleNames[origin] || typeMeanings[origin];
-  if (typeof known === "string") return known;
 
   const segments = origin.split(".");
   for (let end = segments.length; end > 0; end--) {
@@ -1123,22 +1141,25 @@ function importMeaning(origin, importingFile, seen = new Set()) {
     if (!source) continue;
     const member = segments.slice(end).join(".");
     if (!member) {
+      if (typeof known === "string") return known;
       const purpose = projectGuide.files[source.path];
       return {description: purpose ? "项目模块。" + purpose : "从 " + source.path + " 加载的项目模块。", source: source.path};
     }
     const definition = source.symbols?.find(([, , name]) => name === member);
     if (definition) {
       const [line, , , kind] = definition;
-      const note = expressionIndex.files[source.path]?.[line]?.definition?.purpose;
+      const functionMeaning = functionNameMeaning(source.path, line);
+      if (functionMeaning) return functionMeaning;
+      if (typeof known === "string") return known;
       const rawDoc = projectNotes[source.path]?.[line]?.[2];
-      const detail = shortMeaning(note) || shortMeaning(rawDoc);
+      const detail = shortMeaning(rawDoc);
       if (detail) return {description: (kind === "类" ? "项目中的类。" : "项目中的函数。") + detail, source: source.path + " · 第 " + line + " 行"};
     }
     const reexport = source.bindings && Object.hasOwn(source.bindings, member) &&
       source.bindings[member].find(([, scope, , role]) => !scope && (role === "import" || role === "module"));
-    if (reexport) return importMeaning(reexport[4], source.path, seen);
+    if (reexport) return importMeaning(reexport[4], source.path, seen) || known || null;
   }
-  return null;
+  return typeof known === "string" ? known : null;
 }
 
 function addImportedModuleNames(file, lines, names, first, last) {
@@ -1208,6 +1229,11 @@ function addLocalBindings(file, lines, names, variableNames, bindingMeanings, as
       bindingMeanings.set(name, {description: indexedMeaning, source: definition});
       continue;
     }
+    const functionMeaning = role === "function" && functionNameMeaning(file.path, at);
+    if (functionMeaning) {
+      names.set(name, functionMeaning);
+      continue;
+    }
     if (names.has(name) && !vagueNameMeaning(names.get(name))) continue;
     const records = expressionIndex.files[file.path] || {};
     const row = records[at];
@@ -1216,8 +1242,6 @@ function addLocalBindings(file, lines, names, variableNames, bindingMeanings, as
       description = shortMeaning(row?.outer && row.nodes[0].result)
         || shortMeaning(projectManual[file.path]?.[at]?.result)
         || indexedMeaning;
-    } else if (role === "function" || role === "class") {
-      description = shortMeaning(row?.definition?.purpose);
     }
     const roles = {
       parameter: "这个函数接收的参数，由调用者传入。",
@@ -1251,14 +1275,11 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
   const compact = value => value.replace(/\s+/g, " ").trim().slice(0, 72);
   const head = before.slice(-160);
   const tail = rest.slice(0, 160);
-  const member = qualified.slice(0, -token.length).replace(/(?:\.|::|->)$/, "");
   if (index < count - 1) return "当前访问的限定名。后面的成员通过 " + qualified + " 查找。";
   if (language === "py" && /\bfrom\s+[^\s]*$/.test(head)) return "导入来源所在的模块，用来查找 import 后列出的成员。";
   const indexing = tail.match(/^\s*\[([^\]]{1,65})\]/);
   if (indexing) return "被索引的对象，用 " + compact(indexing[1]) + " 选出其中一项或一段。";
-  const call = tail.match(/^\s*\(([^()]{0,70})\)/);
-  if (call) return "可调用对象。这里计算 " + qualified + "(" + compact(call[1]) + ")。";
-  if (/^\s*\(/.test(tail)) return "这里调用的" + (member ? "成员函数" : "函数或可调用对象") + "，接收后面括号中的输入。";
+  if (/^\s*\(/.test(tail)) return "这个调用的具体作用和返回值待核实。";
   if (/\b(?:if|while|assert)\b/.test(head)) return "这个条件中的判断值，影响接下来是否执行对应代码。";
   if (/\breturn\b/.test(head)) return "函数返回表达式中的值，供调用方使用。";
   if (/\b(?:sizeof|decltype)\s*\([^)]*$/.test(head)) return "运算的输入，用来确定对象的大小或表达式的类型。";

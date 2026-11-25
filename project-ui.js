@@ -323,6 +323,8 @@ function renderProjectStatement(list, first, last, line, selected) {
   const focusedNote = audited?.conditionNote || audited?.valueNote;
   if (focusedNote) {
     showExplanationSections(item, [["这行在做什么", focusedNote]]);
+    const target = audited.outer && audited.nodes[0]?.target;
+    if (target) expressionSourceLink(item, ...target, "查看定义");
     return;
   }
   if (audited?.collectionNote) {
