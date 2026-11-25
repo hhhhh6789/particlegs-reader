@@ -489,6 +489,92 @@ function filterFiles() {
   if (!count) add(tree, "p", "没有匹配文件。");
   if (count > 200) add(tree, "p", "共 " + count + " 项。请缩小搜索范围。");
 }
+
+function initializePaneSplitter() {
+  const splitter = element("reader-splitter");
+  if (!splitter) return;
+  const panes = splitter.parentElement;
+  const storageKey = "particlegs-lesson-width";
+  const min = Number(splitter.getAttribute("aria-valuemin"));
+  const max = Number(splitter.getAttribute("aria-valuemax"));
+  let share = null;
+  let drag = null;
+
+  function defaultShare() {
+    return Number.parseFloat(getComputedStyle(panes).getPropertyValue("--lesson-default")) || 44;
+  }
+
+  function updateValue() {
+    const value = Math.round(share ?? defaultShare());
+    splitter.setAttribute("aria-valuenow", String(value));
+    splitter.setAttribute("aria-valuetext", "讲解区 " + value + "%，源码区 " + (100 - value) + "%");
+  }
+
+  function setShare(value) {
+    share = value === null ? null : Math.min(max, Math.max(min, value));
+    if (share === null) {
+      panes.style.removeProperty("--lesson-width");
+      panes.style.removeProperty("--source-width");
+    } else {
+      panes.style.setProperty("--lesson-width", share + "fr");
+      panes.style.setProperty("--source-width", (100 - share) + "fr");
+    }
+    updateValue();
+  }
+
+  function saveShare() {
+    try {
+      if (share === null) localStorage.removeItem(storageKey);
+      else localStorage.setItem(storageKey, String(share));
+    } catch {
+      // Resizing also works in browsers that block storage on local files.
+    }
+  }
+
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved !== null && Number.isFinite(Number(saved))) setShare(Number(saved));
+  } catch {
+    // The CSS default is used when this page cannot access storage.
+  }
+  updateValue();
+  window.addEventListener("resize", updateValue);
+
+  splitter.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || drag) return;
+    event.preventDefault();
+    hideNameTip();
+    splitter.focus({preventScroll: true});
+    splitter.setPointerCapture(event.pointerId);
+    drag = {id: event.pointerId, x: event.clientX, start: share ?? defaultShare(), original: share};
+    document.body.classList.add("reader-resizing");
+  });
+  splitter.addEventListener("pointermove", event => {
+    if (event.pointerId !== drag?.id) return;
+    const width = panes.clientWidth - splitter.offsetWidth;
+    if (width > 0 && (event.clientX !== drag.x || share !== drag.original)) {
+      setShare(drag.start + 100 * (event.clientX - drag.x) / width);
+    }
+  });
+  splitter.addEventListener("lostpointercapture", event => {
+    if (event.pointerId !== drag?.id) return;
+    if (share !== drag.original) saveShare();
+    drag = null;
+    document.body.classList.remove("reader-resizing");
+  });
+  splitter.addEventListener("dblclick", () => {
+    setShare(null);
+    saveShare();
+  });
+  splitter.addEventListener("keydown", event => {
+    const steps = {ArrowLeft: -2, ArrowRight: 2};
+    if (!Object.hasOwn(steps, event.key) && !["Home", "End", "Enter"].includes(event.key)) return;
+    const value = share ?? defaultShare();
+    event.preventDefault();
+    setShare(event.key === "Enter" ? null : event.key === "Home" ? min : event.key === "End" ? max : value + steps[event.key]);
+    saveShare();
+  });
+}
 for (const [id, label, path, line] of projectGuide.topics) {
   const button = add(element("examples"), "button", label);
   button.dataset.topic = id;
@@ -531,6 +617,7 @@ code.onkeydown = event => {
   selectLine(activeLine + (event.key === "ArrowUp" ? -1 : 1), true);
 };
 filterFiles();
+initializePaneSplitter();
 initializeVisualizations();
 element("examples").querySelector("button").click();
 

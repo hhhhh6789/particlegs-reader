@@ -30,10 +30,13 @@
     <nav id="tree" aria-label="源码目录"></nav>
 
   </aside>
-  <main>
-    <section class="lesson" aria-label="代码讲解和可视化">
+  <main class="reader-panes">
+    <section id="lesson-pane" class="lesson" aria-label="代码讲解和可视化">
       <div id="reading" class="reading" aria-live="polite"></div>
     </section>
+    <div id="reader-splitter" class="reader-splitter" role="separator" aria-label="讲解区宽度"
+      aria-controls="lesson-pane" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75"
+      aria-valuenow="44" tabindex="0" title="左右拖动调整宽度，双击恢复默认"></div>
     <section class="source" aria-label="源代码">
       <div class="sourcebar">
         <div><strong id="path"></strong><div id="status"></div></div>

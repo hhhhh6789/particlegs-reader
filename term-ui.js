@@ -26,6 +26,7 @@ const knownNames = {
   "random.seed": "random 模块中的函数，设置随机数生成的起点。用同一个种子可以复现后续的抽样顺序。",
   "os.path": "Python 标准库中的路径处理模块。",
   "os.path.join": "把路径的各部分拼成一个路径。",
+  "os.makedirs": "按路径创建目录。缺少上级目录时，也会一起创建。",
   object: "Python 对象的公共基类。类可以从它继承默认的对象行为。",
   property: "把类的方法声明为属性，访问属性时由这个方法计算并返回值。",
   staticmethod: "把方法声明为静态方法，调用时 Python 不会自动传入对象或类。",
@@ -42,8 +43,19 @@ const knownNames = {
 };
 
 const moduleNames = {
+  diff_gaussian_rasterization: "可微高斯光栅化的 Python 包，把高斯数据交给 CUDA 扩展并接回渲染结果。",
+  importlib: "Python 标准库包，提供导入和加载模块的工具。",
+  pytorch3d: "用于三维深度学习的 Python 库，项目用它做点云取样和近邻计算。",
+  simple_knn: "点云近邻计算扩展包，项目用它估计高斯的初始尺度。",
+  "simple_knn._C": "Simple-KNN 编译出的 CUDA 扩展，提供点云近邻距离计算。",
+  "torch.utils": "PyTorch 的辅助工具包，包含数据加载、日志记录和扩展构建等模块。",
+  "torch.utils.data": "PyTorch 的数据工具模块，用于定义数据集和组织数据加载。",
+  "torch.utils.tensorboard": "PyTorch 的日志模块，将训练指标、图像等写成 TensorBoard 可以读取的日志。",
+  "torchvision.transforms": "TorchVision 的变换模块，用于预处理图像或张量。",
+  utils: "ParticleGS 的工具模块目录，组织相机、坐标变换、损失和文件操作等辅助代码。",
   argparse: "Python 标准库模块，定义并读取命令行参数。",
   collections: "Python 标准库模块，提供字典、队列和具名元组等容器工具。",
+  concurrent: "Python 标准库包，组织并发执行工具，项目从其中的 futures 提交并行任务。",
   "concurrent.futures": "Python 标准库模块，提交并行任务并取得运行结果。",
   datetime: "Python 标准库模块，用来表示和处理日期及时间。",
   errno: "Python 标准库模块，提供文件已存在等系统错误的编号。",
@@ -81,6 +93,14 @@ const moduleNames = {
 };
 
 const importedMembers = {
+  "scene.dataset_readers.sceneLoadTypeCallbacks": "数据格式到读取函数的映射，用来选择相应的场景读取器。",
+  "datetime.datetime": "表示日期和时刻的类，项目用它给控制台日志附上当前时间。",
+  "diff_gaussian_rasterization.GaussianRasterizationSettings": "光栅化设置类型，保存图像尺寸、相机矩阵和背景等渲染输入。",
+  "diff_gaussian_rasterization.GaussianRasterizer": "可微高斯光栅化器，把三维高斯渲染为图像和深度。",
+  "diff_gaussian_rasterization._C": "光栅化的原生扩展，为 Python 封装提供 CUDA 渲染和反向计算。",
+  "torch.autograd.Variable": "PyTorch 的旧版自动求导接口，源码用它包装用于运算的张量。",
+  "torch.utils.cpp_extension.CUDAExtension": "用于声明需要编译的 C++ 和 CUDA 源文件，生成 Python 可导入的扩展。",
+  "torch.utils.cpp_extension.BuildExtension": "PyTorch 的扩展构建类，由打包工具调用来编译原生源码。",
   "argparse.ArgumentParser": "命令行参数解析器。先登记可用选项，再从启动命令读取这些值。",
   "argparse.Namespace": "按属性名保存参数值的对象，例如用 args.model_path 读取模型路径。",
   "errno.EEXIST": "表示目标文件或目录已存在的系统错误编号。",
@@ -96,7 +116,7 @@ const importedMembers = {
   "simple_knn._C.distCUDA2": "CUDA 扩展中的近邻距离函数，为每个点计算三个最近邻的平均平方距离。",
   "torch.nn.Module": "PyTorch 模型和网络层的基类，用来组织可训练参数和子模块。",
   "torch.utils.data.Dataset": "PyTorch 数据集基类。子类实现样本数量和按索引读取样本。",
-  "torch.utils.tensorboard.SummaryWriter": "把训练指标和图像写成 TensorBoard 可以读取的日志。",
+  "torch.utils.tensorboard.SummaryWriter": "PyTorch 的日志写入类，把训练损失、图像等写入 TensorBoard 日志文件。",
   "torchdiffeq.odeint": "ODE 积分函数，根据变化率和已知起始状态求指定时刻的状态。",
   "tqdm.tqdm": "把可迭代对象包装成带进度条的循环。",
   "typing.NamedTuple": "用有名字的字段定义一种元组，既能按字段名访问也能按位置读取。",
@@ -190,8 +210,18 @@ const timeGridNames = {
   g_start: "ODE 积分从这个状态出发。这里读取它的设备和数值类型来创建时间点。",
 };
 
+const loadOnDemandMeaning = "相机数据按需加载的开关。开启时，训练或渲染用到当前视角才把它的数据移到 GPU。";
+
 const scopedNames = {
   "train.py": [
+    [1, 462, {
+      TENSORBOARD_FOUND: "布尔标记，表示当前环境是否成功导入 TensorBoard 日志写入工具。",
+      tb_writer: "TensorBoard 日志写入对象，用来保存训练损失、耗时和图像等记录。",
+      "self.tb_writer": "当前训练器的 TensorBoard 日志写入对象，用来记录这一轮训练的指标。",
+      "self.viewpoint_stack": "当前采样轮次尚未抽到的相机列表。",
+      "self.scene.init_cameras": "用于训练预热阶段的相机集合。",
+      "self.opt.gradual": "逐步扩大训练时间范围的开关，开启时由早到晚纳入更多视角。",
+    }],
     [195, 195, {
       "viewpoint.fid": "每个候选相机的拍摄时刻，这里取最大的值作为数据中最晚的时刻。",
     }],
@@ -200,10 +230,40 @@ const scopedNames = {
       "self.viewpoint_stack": "本轮还没抽到的相机列表，取出一个视角后就从这个列表移除。",
       "self.viewpoint_stack.pop": "列表方法。按抽到的索引取出对应相机，同时从候选列表移除它。",
     }],
+    [327, 373, {
+      "self.deform.OdeTransformer.encoder.cache": "编码器缓存的近邻特征，基础高斯变化后需要重新计算。",
+      _disp: "每个高斯对应的位移张量，供刷新近邻分组时参考运动幅度。",
+      "self.deform.OdeTransformer.encoder.vis_fps": "记录最远点采样过程的开关，用于保存可视化所需的采样中心。",
+    }],
   ],
   "arguments/__init__.py": [
     [18, 134, {
       ParamGroup: "命令行配置的基类。把配置对象的属性登记为可从命令行传入的选项。",
+      shorthand: "布尔标记，表示当前选项是否还要登记一个简写。",
+      "self.white_background": "白色背景开关，控制图像透明区域的合成底色。",
+      "self.eval": "传给场景读取器的评估模式开关。",
+      "self.load2gpu_on_the_fly": loadOnDemandMeaning,
+      "self.size": "场景配置中的 size 字段，默认未提供尺寸。",
+      "self.convert_SHs_python": "球谐颜色的计算位置开关，开启时由 Python 先求出 RGB。",
+      "self.compute_cov3D_python": "三维协方差的计算位置开关，开启时由 Python 先求出协方差。",
+      "self.debug": "传给高斯光栅化器的调试开关。",
+      "self.disable_ws_prune": "名为 disable_ws_prune 的布尔配置项，可通过同名命令行选项设置。",
+      "self.reg_after_densify": "名为 reg_after_densify 的布尔配置项，可通过同名命令行选项设置。",
+      "self.gradual": "训练时间范围逐步扩大的开关。",
+    }],
+  ],
+  "gaussian_renderer/__init__.py": [
+    [75, 114, {
+      scales: "每个高斯沿三个轴的尺度，光栅化器可用它和旋转求三维协方差。",
+      rotations: "每个高斯的旋转四元数，用于确定其三维椭球的朝向。",
+      cov3D_precomp: "在 Python 端预先算好的三维协方差，可直接传给光栅化器。",
+      shs: "每个高斯的球谐系数，用于按观察方向计算颜色。",
+      colors_precomp: "传给光栅化器的预计算 RGB，包括 Python 计算的颜色或调用者指定的颜色。",
+    }],
+  ],
+  "render.py": [
+    [230, 282, {
+      metrics: "本次渲染和评估得到的指标，来自 render_set 的返回值。",
     }],
   ],
   "metrics.py": [
@@ -212,14 +272,47 @@ const scopedNames = {
     }],
   ],
   "scene/dataset_readers.py": [
+    [37, 52, {depth: "相机记录中可选的像素深度数据。"}],
+    [53, 744, {pcd: "场景的初始点云，包含点坐标和颜色等属性。"}],
     [208, 208, {
       "x.image_name": "候选相机记录的图像名，排序时用作比较键。",
     }],
   ],
+  "scene/colmap_loader.py": [
+    [87, 113, {
+      xyzs: "从 COLMAP 点文件读取的三维坐标数组。",
+      rgbs: "点云各点的 RGB 颜色数组。",
+      errors: "COLMAP 点记录里的误差值数组。",
+    }],
+  ],
+  "scene/deform_model.py": [
+    [1, 275, {
+      "self.optimizer": "形变网络的优化器，用训练梯度更新网络参数。",
+      "self.net_lr_scheduler": "按训练迭代计算形变网络学习率的函数。",
+      "self.OdeTransformer.encoder.cache_knn_idx": "编码器缓存的近邻索引，散度计算可复用这些索引。",
+    }],
+  ],
+  "scene/gaussian_model.py": [
+    [1, 95, {"self.optimizer": "基础高斯参数的优化器，用于更新位置、颜色、尺度等属性。"}],
+  ],
+  "scene/neu3d.py": [
+    [237, 255, {
+      "self.white_bg": "数据集配置中的白色背景标记。",
+      "self.ndc_ray": "数据集配置中的光线坐标标记，NDC 指归一化设备坐标。",
+      "self.depth_data": "数据集配置中的深度数据标记。",
+    }],
+  ],
   "utils/camera_utils.py": [
+    [1, 57, {
+      WARNED: "布尔标记，记录是否已提示过大尺寸输入图像会被缩小。",
+      loaded_mask: "相机图像的可选透明度掩码，从 RGBA 图像的第 4 个通道取得。",
+    }],
     [52, 57, {
       "args.data_device": "配置中的相机数据设备。未开启按需上传时，将该设备传给 Camera。",
     }],
+  ],
+  "utils/time_utils.py": [
+    [110, 168, {gate: "可选的运动门控权重，用来缩放网络输出的形变。"}],
   ],
   "utils/general_utils.py": [
     [195, 207, {
@@ -227,6 +320,17 @@ const scopedNames = {
     }],
   ],
   "scene/network.py": [
+    [164, 211, {
+      "self.vis": "最远点采样的记录开关，用来收集采样结果供可视化。",
+      "self.last_centers": "最近一次采样选出的分组中心坐标。",
+      "self.last_high_idx": "最近一次记录的高运动点索引。",
+    }],
+    [322, 365, {"self.queries": "可训练的注意力查询向量，用于从输入特征聚合信息。"}],
+    [410, 521, {
+      "self.cache": "编码器缓存的近邻特征，后续可复用以减少分组计算。",
+      "self.cache_knn_idx": "编码器缓存的近邻索引，散度正则可以复用。",
+      "self.g0_cache": "编码器缓存的共享初始状态 g0，用于复用上一次的编码结果。",
+    }],
     [533, 555, {
       input_dim: "共享状态向量的长度。网络最终输出也回到这个维数。",
       hidden_dim: "中间网络层的特征宽度。",
@@ -235,6 +339,7 @@ const scopedNames = {
       "self.net2": "变化率网络的第二组串联层，输出对中间向量的修正。",
     }],
     [633, 644, timeGridNames],
+    [608, 631, {"self.cache": "推理阶段的编码缓存，保存逐高斯局部特征 l 和共享初始状态 g0。"}],
   ],
   "submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/forward.cu": [
     [296, 380, {
@@ -251,6 +356,7 @@ const scopedNames = {
     }],
   ],
   "scene/__init__.py": [
+    [39, 133, {"self.loaded_iter": "已选中的检查点迭代编号，供加载对应的高斯状态。"}],
     [59, 89, {
       sceneLoadTypeCallbacks: "按数据集类型找到对应读取函数的字典。例如 Colmap 对应 COLMAP 场景读取器。",
       "args.source_path": "传给读取器的数据目录。",
@@ -312,7 +418,17 @@ let proseTypes;
 
 function vagueNameMeaning(value) {
   const text = typeof value === "string" ? value : value?.description || "";
-  return /^(?:代码在这里引用|调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存对应语句算出的值|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
+  return /^(?:代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存对应语句算出的值|把[^。]+保存到[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
+}
+
+function sourceContextMeaning(value) {
+  const assignment = value.match(/^保存右侧([^，]+)，来源是 (.+)。$/);
+  if (!assignment) return value;
+  const [, kind, source] = assignment;
+  if (kind === "布尔值") return "布尔标记，可作为条件参与分支判断。";
+  if (source === "None") return "可选值，未提供时用 None 表示。";
+  if (kind === "值") return "由 " + source + " 提供的值。";
+  return kind + "，由 " + source + " 提供。";
 }
 
 function shortMeaning(value) {
@@ -418,18 +534,23 @@ function collectNameMeanings(file, first, last) {
   if (path.endsWith(".py")) {
     for (const [type, meaning] of projectTypeNames()) if (!names.has(type)) names.set(type, meaning);
     addLocalBindings(file, lines, names, first, last);
+    addImportedModuleNames(file, lines, names, first, last);
   }
   for (let line = first; line <= last; line++) {
     for (const [name, id] of Object.entries(nameContextIndex.files[path]?.[line] || {})) {
-      const detail = nameContextIndex.meanings[id];
+      const detail = sourceContextMeaning(nameContextIndex.meanings[id]);
       const current = names.get(name);
       if (!current || vagueNameMeaning(current)) {
         names.set(name, current?.source ? {description: detail, source: current.source} : detail);
       }
     }
   }
-  const scoped = scopedNames[path]?.find(([start, end]) => start <= first && last <= end);
-  for (const [name, meaning] of Object.entries(scoped?.[2] || {})) names.set(name, meaning);
+  if (path.startsWith("arguments/")) names.set("load2gpu_on_the_fly", loadOnDemandMeaning);
+  for (const [start, end, meanings] of scopedNames[path] || []) {
+    if (start <= first && last <= end) {
+      for (const [name, meaning] of Object.entries(meanings)) names.set(name, meaning);
+    }
+  }
   for (let line = first; line <= last; line++) {
     for (const [name, [canonical, path, definitionLine]] of Object.entries(file.types?.[line] || {})) {
       const description = Object.hasOwn(typeMeanings, canonical) ? typeMeanings[canonical] : "";
@@ -458,6 +579,9 @@ function projectTypeNames() {
 }
 
 function importMeaning(origin, importingFile, seen = new Set()) {
+  if (origin === "._C" && importingFile.endsWith("/diff_gaussian_rasterization/__init__.py")) {
+    origin = "diff_gaussian_rasterization._C";
+  }
   if (origin.startsWith(".")) {
     const lead = origin.match(/^\.+/)[0].length;
     const folders = importingFile.split("/").slice(0, -lead);
@@ -491,6 +615,26 @@ function importMeaning(origin, importingFile, seen = new Set()) {
     if (reexport) return importMeaning(reexport[4], source.path, seen);
   }
   return null;
+}
+
+function addImportedModuleNames(file, lines, names, first, last) {
+  for (let line = first; line <= last; line++) {
+    const text = lines[line - 1] || "";
+    const source = text.match(/^\s*from\s+([.\w]+)\s+import\b/);
+    const imports = text.match(/^\s*import\s+([^#;]+)/);
+    const modules = source ? [source[1]] : imports
+      ? imports[1].split(",").map(part => part.trim().split(/\s+/)[0]) : [];
+    for (const module of modules) {
+      const relative = module.match(/^\.+/)?.[0] || "";
+      const parts = module.slice(relative.length).split(".");
+      for (let end = 1; end <= parts.length; end++) {
+        const prefix = parts.slice(0, end).join(".");
+        if (!prefix) continue;
+        const detail = importMeaning(relative + prefix, file.path);
+        if (detail) names.set(prefix, detail);
+      }
+    }
+  }
 }
 
 function addLocalBindings(file, lines, names, first, last) {
@@ -530,9 +674,10 @@ function addLocalBindings(file, lines, names, first, last) {
     const row = records[at];
     let description = "";
     if (role === "assignment" || role === "attribute") {
+      const contextId = nameContextIndex.files[file.path]?.[at]?.[name];
       description = shortMeaning(row?.outer && row.nodes[0].result)
         || shortMeaning(projectManual[file.path]?.[at]?.result)
-        || shortMeaning(projectNotes[file.path]?.[at]?.[2]);
+        || (contextId !== undefined ? sourceContextMeaning(nameContextIndex.meanings[contextId]) : "");
     } else if (role === "function" || role === "class") {
       description = shortMeaning(row?.definition?.purpose);
     }
@@ -568,7 +713,6 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
   const compact = value => value.replace(/\s+/g, " ").trim().slice(0, 72);
   const head = before.slice(-160);
   const tail = rest.slice(0, 160);
-  const namespace = qualified.includes("::");
   const member = qualified.slice(0, -token.length).replace(/(?:\.|::|->)$/, "");
   if (index < count - 1) return "当前访问的限定名。后面的成员通过 " + qualified + " 查找。";
   if (language === "py" && /\bfrom\s+[^\s]*$/.test(head)) return "导入来源所在的模块，用来查找 import 后列出的成员。";
@@ -579,7 +723,6 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
   const call = tail.match(/^\s*\(([^()]{0,70})\)/);
   if (call) return "可调用对象。这里计算 " + qualified + "(" + compact(call[1]) + ")。";
   if (/^\s*\(/.test(tail)) return "这里调用的" + (member ? "成员函数" : "函数或可调用对象") + "，接收后面括号中的输入。";
-  if (index > 0) return (namespace ? "限定名 " : "成员访问 ") + qualified + "，从 " + member + " 取得 " + token + "。";
   if (/\b(?:if|while|assert)\b/.test(head)) return "这个条件中的判断值，影响接下来是否执行对应代码。";
   if (/\breturn\b/.test(head)) return "函数返回表达式中的值，供调用方使用。";
   if (/\b(?:sizeof|decltype)\s*\([^)]*$/.test(head)) return "运算的输入，用来确定对象的大小或表达式的类型。";

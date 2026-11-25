@@ -482,6 +482,46 @@ aside { background: rgba(241, 246, 255, .52); }
   .workbench { grid-template-columns: clamp(122px, 16vw, 168px) minmax(0, 1fr); }
   main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
+.reader-splitter { display: none; }
+@media (min-width: 651px) {
+  .reader-panes {
+    --lesson-default: 44fr;
+    --source-default: 56fr;
+    --splitter-width: 16px;
+    grid-template-columns:
+      minmax(0, var(--lesson-width, var(--lesson-default)))
+      var(--splitter-width)
+      minmax(0, var(--source-width, var(--source-default)));
+    column-gap: 0;
+  }
+  .reader-splitter {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    border-radius: 9px;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .reader-splitter::before {
+    content: "";
+    width: 4px;
+    height: 48px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .65);
+    background: rgba(81, 103, 162, .47);
+  }
+  .reader-splitter:hover::before,
+  .reader-splitter:focus-visible::before,
+  .reader-resizing .reader-splitter::before { background: var(--accent); height: 68px; }
+  .reader-splitter:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .reader-resizing, .reader-resizing * { cursor: col-resize; user-select: none; }
+}
+@media (min-width: 651px) and (max-width: 1000px) {
+  .reader-panes { --lesson-default: 50fr; --source-default: 50fr; }
+}
+@media (min-width: 651px) and (pointer: coarse) {
+  .reader-panes { --splitter-width: 24px; }
+}
 @media (max-width: 650px) {
   :root { --pane-radius: 16px; }
   .mast { border-radius: 20px; }
