@@ -33,6 +33,11 @@ function findAuditedCall(nodes, name, line, column) {
   return null;
 }
 
+function hasExpressionDetails(nodes) {
+  return nodes.some(node => node.kind !== "container"
+    || node.parts.some(([, , children]) => hasExpressionDetails(children)));
+}
+
 function showExpressionCall(parent, call, outer, written = null, effect = "") {
   const purpose = written?.purpose || call.purpose;
   const result = written?.result ?? [call.result, effect].filter(Boolean).join(" ");
@@ -40,7 +45,7 @@ function showExpressionCall(parent, call, outer, written = null, effect = "") {
   if (outer) {
     const parts = [];
     if (purpose) parts.push(["作用", purpose]);
-    if (!written?.explainNestedInline && nested.length) {
+    if (!written?.explainNestedInline && hasExpressionDetails(nested)) {
       parts.push(["内部求值", section => showExpressions(section, nested)]);
     }
     if (result && result !== purpose) parts.push(["结果", result]);
@@ -62,17 +67,21 @@ function shortCallName(name) {
   return name.includes("(") ? name.match(/[A-Za-z_]\w*$/)?.[0] || name : name;
 }
 
+function showCollectionOverview(card, note) {
+  const [summary, ...sections] = typeof note === "string" ? [note] : note;
+  appendInlineCode(add(card, "p", null, "statement-summary"), summary);
+  if (!sections.length) return;
+  showExplanationSections(card, sections.map(([title, content]) =>
+    [title, Array.isArray(content) ? part => expressionRows(part, content) : content]));
+}
+
 function showExpressions(parent, nodes) {
-  nodes = nodes.filter(node => node.role !== "定位写入位置" || node.kind !== "container"
-    || node.parts.some(([, , children]) => children.length));
   if (!nodes.length) return;
   const list = add(parent, "dl", null, "expression-tree expression-steps");
   const descriptions = {
     choice: "先判断条件，再计算被选中的分支。",
     and: "从左到右求值，**遇到假值就停止**。",
-    or: "从左到右求值，**遇到真值就停止**。",
-    comprehension: "按下面的遍历和筛选规则生成",
-    container: "按源码中的顺序求出各项，再组成"
+    or: "从左到右求值，**遇到真值就停止**。"
   };
   function row(node, label, labelCode = false, role = "") {
     const entry = add(list, "div", null, "expression-node parameter-row");
@@ -85,6 +94,19 @@ function showExpressions(parent, nodes) {
   }
   function display(node, role = node.role) {
     switch (node.kind) {
+      case "container":
+        // A literal groups values. Nested computations already describe what makes the values.
+        for (const [label, , children] of node.parts) {
+          for (const child of children) display(child, [role, label].filter(Boolean).join(" · "));
+        }
+        break;
+      case "comprehension": {
+        const detail = row(node, "逐项生成" + node.name, false, role);
+        for (const [label, text] of node.parts) {
+          appendInlineCode(add(detail, "p"), label + " " + quoteCode(text));
+        }
+        break;
+      }
       case "call": {
         const name = shortCallName(node.name);
         for (const receiver of node.receiver || []) display(receiver, "给 " + name + "() 准备操作对象");
@@ -107,11 +129,11 @@ function showExpressions(parent, nodes) {
       default: {
         const detail = row(node, node.name || ({choice: "条件表达式", and: "and", or: "or"}[node.kind] ?? "表达式"), false, role);
         const summary = descriptions[node.kind];
-        if (summary) appendInlineCode(add(detail, "p"), summary + ((node.kind === "comprehension" || node.kind === "container") ? node.name + "。" : ""));
+        if (summary) appendInlineCode(add(detail, "p"), summary);
         for (const [label, text, children] of node.parts || []) {
           if (children.length) {
             for (const child of children) display(child, [role, label].filter(Boolean).join(" · "));
-          } else if (node.kind !== "container") {
+          } else {
             appendInlineCode(add(detail, "p"), label + " " + quoteCode(text));
           }
         }
@@ -119,6 +141,7 @@ function showExpressions(parent, nodes) {
     }
   }
   for (const node of nodes) display(node);
+  if (!list.hasChildNodes()) list.remove();
 }
 
 function receiverChain(call) {

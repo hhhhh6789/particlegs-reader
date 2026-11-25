@@ -316,6 +316,10 @@ function renderProjectStatement(list, first, last, line, selected) {
     selectLine(first, true);
   };
   appendCodeExcerpt(item, first, last, Boolean((cameraSelection || mixed || structuredCalls.length) && last - first >= 3));
+  if (audited?.collectionNote) {
+    showCollectionOverview(item, audited.collectionNote);
+    return;
+  }
   if (kind === "context" || (kind && !manual)) {
     for (const paragraph of body.split("\n")) {
       appendInlineCode(add(item, "p", null, "statement-summary"), paragraph);
