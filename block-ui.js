@@ -219,7 +219,7 @@ function showMixedCall(item, records, manual, audited, selected) {
         if (node.kind !== "choice") return [node];
         return node.parts.flatMap(([role, , children]) => children.map(child => ({...child, role})));
       });
-      if (nodes.length) showExplanationSections(item, [["分支里的计算", section => showExpressions(section, nodes)]]);
+      if (hasExpressionDetails(nodes)) showExplanationSections(item, [["分支里的计算", section => showExpressions(section, nodes)]]);
     }
     if (outer.target) expressionSourceLink(item, ...outer.target, "查看定义");
   }

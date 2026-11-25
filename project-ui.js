@@ -329,6 +329,12 @@ function renderProjectStatement(list, first, last, line, selected) {
     showCollectionOverview(item, audited.collectionNote);
     return;
   }
+  if (audited?.builtinNote) {
+    showExplanationSections(item, [["这行在做什么", audited.builtinNote]]);
+    const target = findAuditedCall(audited.nodes)?.target;
+    if (target) expressionSourceLink(item, ...target, "查看定义");
+    return;
+  }
   if (kind === "context" || (kind && !manual)) {
     for (const paragraph of body.split("\n")) {
       appendInlineCode(add(item, "p", null, "statement-summary"), paragraph);

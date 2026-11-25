@@ -921,6 +921,7 @@ function collectNameMeanings(file, first, last) {
   const variableNames = new Set();
   const loopBindings = new Map();
   const formalParameters = new Set();
+  const keywordNames = new Set();
   const ambiguous = new Set();
   const entries = expressionIndex.files[path] || {};
   const scope = file.symbols?.findLast(([from, to, , kind]) => kind === "函数" && from <= first && first <= to);
@@ -951,6 +952,7 @@ function collectNameMeanings(file, first, last) {
   function readArguments(arguments_, written) {
     for (const [label, fallback, children, info] of arguments_) {
       const meaning = parameterIdentity(argumentMeaning(label, info, fallback, written));
+      if (info?.kind === "keyword") keywordNames.add(info.name);
       remember(info?.name, meaning);
       if (info?.value && info.value !== info.name && simpleName.test(info.value)) {
         remember(info.value, meaning);
@@ -1042,6 +1044,12 @@ function collectNameMeanings(file, first, last) {
   for (let line = first; line <= last; line++) {
     const valueName = entries[line]?.valueName;
     if (valueName) names.set(...valueName);
+  }
+  if (path.endsWith(".py")) {
+    for (const [name, meaning] of Object.entries(expressionIndex.basicBuiltins || {})) {
+      const shadowed = file.bindings?.[name]?.some(([, from, to]) => !from || from <= last && first <= to);
+      if (!shadowed && !keywordNames.has(name)) names.set(name, meaning);
+    }
   }
   const declaration = entries[first]?.definition;
   if (declaration) {

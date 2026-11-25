@@ -23,7 +23,7 @@ function expressionRows(parent, rows) {
 
 function findAuditedCall(nodes, name, line, column) {
   for (const node of nodes || []) {
-    if (node.kind === "call" && node.name === name
+    if (node.kind === "call" && (name === undefined ? node.target : node.name === name)
         && (line === undefined || node.at === line) && (column === undefined || node.column === column)) return node;
     const input = !node.arguments ? [] : node.arguments.flatMap(argument => argument[2]);
     const parts = !node.parts ? [] : node.parts.flatMap(part => part[2]);
@@ -34,9 +34,13 @@ function findAuditedCall(nodes, name, line, column) {
 }
 
 function hasExpressionDetails(nodes) {
-  return nodes.some(node => ["container", "and", "or"].includes(node.kind)
-    ? node.parts.some(([, , children]) => hasExpressionDetails(children))
-    : true);
+  return nodes.some(node => {
+    if (node.basicBuiltin) {
+      return hasExpressionDetails(node.arguments.flatMap(([, , children]) => children));
+    }
+    return !["container", "and", "or"].includes(node.kind)
+      || node.parts.some(([, , children]) => hasExpressionDetails(children));
+  });
 }
 
 function showExpressionCall(parent, call, outer, written = null, effect = "") {
@@ -113,8 +117,9 @@ function showExpressions(parent, nodes) {
         const name = shortCallName(node.name);
         for (const receiver of node.receiver || []) display(receiver, "给 " + name + "() 准备操作对象");
         for (const [, , children] of node.arguments) {
-          for (const child of children) display(child, "参与 " + name + "() 的输入计算");
+          for (const child of children) display(child, node.basicBuiltin ? role : "参与 " + name + "() 的输入计算");
         }
+        if (node.basicBuiltin) break;
         const detail = row(node, name + "()", true, role);
         showExpressionCall(detail, {...node, receiver: []}, false);
         if (!detail.hasChildNodes()) {
