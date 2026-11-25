@@ -11,9 +11,11 @@ const odeSteps = [
 let odeChapter = null;
 
 function openOdeChapter() {
-  odeChapter = {step: -1, caller: null};
-  jumpToSource(odeChapterPath, odeEntryLine);
-  reading.scrollTop = 0;
+  navigateReader(() => {
+    odeChapter = {step: -1, caller: null};
+    moveToSource(odeChapterPath, odeEntryLine);
+    reading.scrollTop = 0;
+  });
 }
 
 function updateOdeChapter(path, line) {
@@ -35,25 +37,16 @@ function chapterButton(parent, label, action, className = "chapter-button") {
 }
 
 function openOdeCallback(event) {
-  odeChapter.caller = {
-    line: activeLine,
-    readingTop: reading.scrollTop,
-    codeTop: code.scrollTop,
-    codeLeft: code.scrollLeft,
-    pageTop: window.scrollY,
-  };
-  jumpToSource(odeChapterPath, odeCallbackLine);
-  reading.scrollTop = 0;
+  navigateReader(caller => {
+    odeChapter.caller = caller;
+    moveToSource(odeChapterPath, odeCallbackLine);
+    reading.scrollTop = 0;
+  });
   if (event.detail === 0) reading.querySelector(".ode-callback-return")?.focus({preventScroll: true});
 }
 
 function returnFromOdeCallback(event) {
-  const caller = odeChapter.caller;
-  jumpToSource(odeChapterPath, caller.line);
-  reading.scrollTop = caller.readingTop;
-  code.scrollTop = caller.codeTop;
-  code.scrollLeft = caller.codeLeft;
-  window.scrollTo(0, caller.pageTop);
+  returnToReadingPosition(odeChapter.caller);
   if (event.detail === 0) reading.querySelector(".ode-callback-link")?.focus({preventScroll: true});
 }
 

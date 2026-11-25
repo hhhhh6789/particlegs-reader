@@ -493,6 +493,28 @@ body {
 }
 .utility { padding-inline: 9px; }
 .utility:hover { background: rgba(255, 255, 255, .37); }
+.reading-back {
+  border: 1px solid var(--glass-rim);
+  background: rgba(240, 246, 255, .66);
+  color: #304780;
+  font-weight: 650;
+}
+.reading-back:hover:not(:disabled) { background: #f6f9ff; }
+.reading-back:disabled { opacity: .56; cursor: default; background: transparent; }
+@media (max-width: 650px) {
+  .reading-back { display: none; }
+  body > .reading-back:not(:disabled) {
+    position: fixed;
+    z-index: 3;
+    inset-block-end: max(.8rem, env(safe-area-inset-bottom));
+    inset-inline-end: max(.8rem, env(safe-area-inset-right));
+    display: block;
+    padding: .45rem .9rem;
+    background: rgba(244, 248, 255, .90);
+    backdrop-filter: blur(15px);
+    box-shadow: 0 3px 14px rgba(53, 70, 105, .18);
+  }
+}
 aside { background: rgba(241, 246, 255, .52); }
 .navtop input { border-radius: 999px; padding-inline: 11px; }
 #tree button { border-radius: 9px; }

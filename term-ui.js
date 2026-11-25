@@ -7,7 +7,20 @@ const glossary = {
   "光栅化": "把场景投影到图像上，计算每个像素的值。",
 };
 
+const tensorMethods = {
+  detach: "PyTorch 张量的方法，返回数值相同、已断开梯度跟踪的张量。",
+  cpu: "PyTorch 张量的方法，返回位于 CPU 上的张量。",
+  item: "从只有一个元素的张量或数组中取出 Python 数值。",
+  unsqueeze: "PyTorch 张量的方法，在指定位置插入长度为 1 的维度。",
+  squeeze: "PyTorch 张量的方法，移除长度为 1 的维度。",
+  contiguous: "PyTorch 张量的方法，返回连续存储的同形状张量。",
+  numpy: "PyTorch 张量的方法，把 CPU 张量转换为 NumPy 数组。",
+};
+
+const gaussianModelName = "基础高斯模型，保存各高斯的中心、尺度、旋转、颜色和不透明度。";
+
 const knownNames = {
+  detach: tensorMethods.detach,
   torch: "PyTorch 模块，提供张量和神经网络运算。",
   nn: "PyTorch 的神经网络模块，提供网络层和模型容器。",
   np: "NumPy 的常用别名，用于处理数组。",
@@ -18,6 +31,7 @@ const knownNames = {
   "nn.Linear": "用可学习的权重和偏置，把特征的最后一维映射到指定长度。",
   "nn.GELU": "对每个值做非线性变换，保留输入形状。",
   "nn.Module": "PyTorch 模型和网络层的基类，用来组织可训练参数和子模块。",
+  "torch.Tensor": "PyTorch 的张量类型，表示可在 CPU 或 GPU 上运算的多维数值数据。",
   "torch.autograd.Function": "PyTorch 自定义求导的基类，子类通过 forward 和 backward 指定前向和反向计算。",
   os: "Python 标准库模块，提供文件、目录和操作系统相关功能。",
   random: "Python 标准库模块，提供生成随机数、随机抽取元素和打乱顺序等功能。",
@@ -216,6 +230,9 @@ const scopedNames = {
   "train.py": [
     [1, 462, {
       TENSORBOARD_FOUND: "布尔标记，表示当前环境是否成功导入 TensorBoard 日志写入工具。",
+      "self.gaussians": gaussianModelName,
+      "self.progress_bar": "显示当前训练进度及损失统计的进度条对象。",
+      "self.ema_loss_for_log": "按指数移动平均平滑后的训练总损失。",
       tb_writer: "TensorBoard 日志写入对象，用来保存训练损失、耗时和图像等记录。",
       "self.tb_writer": "当前训练器的 TensorBoard 日志写入对象，用来记录这一轮训练的指标。",
       "self.viewpoint_stack": "当前采样轮次尚未抽到的相机列表。",
@@ -223,6 +240,8 @@ const scopedNames = {
       "self.opt.gradual": "逐步扩大训练时间范围的开关，开启时由早到晚纳入更多视角。",
     }],
     [40, 151, {
+      scene: "当前场景对象，管理高斯模型和各组相机。",
+      "scene.gaussians": gaussianModelName,
       test_psnr: "训练报告返回的平均峰值信噪比，用来衡量评估视角的图像质量。",
       validation_configs: "评估要遍历的视角分组，包含测试相机和抽取的一组训练相机。",
       config: "当前参与评估的一组视角及其分组名。",
@@ -284,9 +303,11 @@ const scopedNames = {
       "self.viewpoint_stack": "本轮还没抽到的相机列表，取出一个视角后就从这个列表移除。",
       "self.viewpoint_stack.pop": "列表方法。按抽到的索引取出对应相机，同时从候选列表移除它。",
     }],
+    [218, 280, {reg: "散度正则损失的记录值，未取到散度损失时为零。"}],
     [327, 373, {
       "self.deform.OdeTransformer.encoder.cache": "编码器缓存的近邻特征，基础高斯变化后需要重新计算。",
-      _disp: "每个高斯对应的位移张量，供刷新近邻分组时参考运动幅度。",
+      d_xyz: "各高斯在当前时刻的三维中心位移，预热时可能是标量零。",
+      _disp: "当前可用的逐高斯位移张量，没有位移张量时为 None。",
       "self.deform.OdeTransformer.encoder.vis_fps": "记录最远点采样过程的开关，用于保存可视化所需的采样中心。",
     }],
   ],
@@ -320,6 +341,15 @@ const scopedNames = {
       z: "相乘所得四元数的第三个向量分量。",
     }],
     [33, 165, {
+      pc: gaussianModelName,
+      "pc.get_xyz.dtype": "三维中心坐标张量的元素数值类型。",
+      "pc.max_sh_degree": "高斯模型支持的最大球谐阶数。",
+      "pc.get_features.transpose": "张量的方法，交换球谐系数轴和 RGB 通道轴。",
+      "viewpoint_camera.camera_center": "当前相机在世界坐标系中的三维中心位置。",
+      means3D: "各高斯形变后的三维中心坐标。",
+      valid: "逐高斯的布尔掩码，表示各高斯是否通过相机深度筛选。",
+      shs_view: "按高斯、RGB 通道、球谐系数三个轴排列的颜色张量。",
+      dir_pp: "从相机中心分别指向各高斯基础中心的向量。",
       screenspace_points: "承接高斯屏幕投影位置梯度的张量，用于训练时决定在哪里增密。",
       means2D: "传给光栅化器的屏幕空间梯度占位张量。",
       opacity: "各高斯的不透明度，用于计算它们对像素颜色的贡献。",
@@ -333,7 +363,14 @@ const scopedNames = {
     }],
   ],
   "render.py": [
+    [39, 45, {gaussians: gaussianModelName}],
+    [48, 53, {value: "要转换为 Python 浮点数的评估指标值。"}],
     [72, 218, {
+      gaussians: gaussianModelName,
+      d_xyz: "加到各高斯基础中心上的三维位移。",
+      d_rotation: "与各高斯基础旋转组合的四元数增量。",
+      d_scaling: "加到各高斯基础对数尺度上的三轴增量。",
+      render_np: "按高度、宽度、RGB 通道排列的 NumPy 图像数组。",
       render_root: "当前场景和检查点的输出根目录。",
       render_path: "预测 RGB 图像的存放目录。",
       gts_path: "真实参考图像的存放目录。",
@@ -365,6 +402,13 @@ const scopedNames = {
     }],
   ],
   "metrics.py": [
+    [87, 90, {
+      lpipss: "保存逐张图所得 LPIPS 距离的列表。",
+      lpips_fn: "计算两张图像感知差异的 LPIPS 指标模型。",
+      renders: "与真实图像逐张配对的预测图像列表。",
+      gts: "与预测图像逐张配对的真实图像列表。",
+      idx: "当前参与比较的一对图像的下标。",
+    }],
     [92, 94, {
       mae: "由每张图像的 PSNR 换算回线性尺度得到的均方误差。",
       psnrs: "各张图像的 PSNR 数值，这里将它们转换为线性误差，再计算汇总指标。",
@@ -435,6 +479,11 @@ const scopedNames = {
     }],
   ],
   "scene/deform_model.py": [
+    [37, 39, {
+      pkg: "当前视角的高斯形变数据字典。",
+      x: "当前变换所依据的各高斯基础中心坐标。",
+    }],
+    [277, 277, {x_de: "已断开梯度跟踪的输入点坐标张量。"}],
     [1, 275, {
       "self.optimizer": "形变网络的优化器，用训练梯度更新网络参数。",
       "self.net_lr_scheduler": "按训练迭代计算形变网络学习率的函数。",
@@ -452,6 +501,12 @@ const scopedNames = {
   ],
   "scene/gaussian_model.py": [
     [30, 510, {
+      self: "当前正在操作的 GaussianModel 对象。",
+      opacities_new: "限制不透明度以后得到的原始参数值。",
+      "self.percent_dense": "相对于场景范围的尺度比例，用来区分拆分和复制的高斯。",
+      prune_mask: "逐高斯的布尔掩码，标记待移除的高斯。",
+      big_points_ws: "逐高斯的布尔掩码，标记实际尺度过大的高斯。",
+      values: "沿各高斯的三个尺度分量求得的最大值。",
       "self.active_sh_degree": "渲染时目前启用的球谐阶数。",
       "self.max_sh_degree": "模型支持的最大球谐阶数。",
       "self._xyz": "基础高斯在参考场景中的可训练中心坐标。",
@@ -465,7 +520,31 @@ const scopedNames = {
       "self.denom": "各高斯参与梯度统计的次数，用于计算平均梯度。",
       "self.max_radii2D": "各高斯历次渲染中记录的最大屏幕投影半径。",
     }],
-    [400, 456, {xyz_cam: "从世界坐标转换到当前相机坐标系后的高斯中心。"}],
+    [167, 180, {
+      xyz: "各高斯的基础中心坐标，按每个高斯一行存为 NumPy 数组。",
+      opacities: "模型保存的未做 Sigmoid 转换的不透明度参数数组。",
+      scale: "各高斯的三轴对数尺度参数数组。",
+      rotation: "各高斯的未归一化旋转四元数参数数组。",
+    }],
+    [338, 362, {
+      n_init_points: "拆分操作开始前的高斯数量。",
+      repeat: "PyTorch 张量的方法，沿各轴重复给定次数。",
+      stds: "每个被选中高斯的三轴采样标准差。",
+      rots: "各被选中高斯的三维旋转矩阵。",
+      samples: "围绕原高斯局部中心采样的三维偏移。",
+      new_xyz: "拆分后新生成高斯的三维中心坐标。",
+    }],
+    [338, 374, {selected_pts_mask: "逐高斯的布尔掩码，标记通过当前增密筛选的高斯。"}],
+    [400, 443, {
+      xyz: "参与可见性筛选的各高斯三维中心坐标。",
+      xyz_cam: "从世界坐标转换到当前相机坐标系后的高斯中心。",
+    }],
+    [479, 485, {
+      xyz: "各高斯加上位移后的三维中心坐标数组。",
+      opacities: "模型保存的未做 Sigmoid 转换的不透明度参数数组。",
+      scale: "叠加变化量后的三轴对数尺度数组。",
+      rotation: "与旋转增量相乘后得到的旋转四元数数组。",
+    }],
     [470, 475, {
       w: "相乘所得四元数的标量分量。",
       x: "相乘所得四元数的第一个向量分量。",
@@ -602,6 +681,16 @@ const scopedNames = {
     }],
   ],
   "utils/loss_utils.py": [
+    [155, 155, {
+      pc_transformed: "各物体的刚体变换应用到点云后得到的三维点坐标。",
+      n_batch: "这一批输入含有的点云样本数量。",
+      n_object: "每个点云样本中的物体数量。",
+      n_point: "每个点云样本的点数。",
+    }],
+    [175, 175, {
+      nn_mask: "每个点的各个近邻对应的物体归属权重。",
+      idx: "每个点对应的近邻下标。",
+    }],
     [58, 83, {ssim_map: "两张图在各位置的局部结构相似度。"}],
     [89, 135, {
       pc1_centered: "去掉质心位置后的第一组点云坐标，用于估计旋转。",
@@ -662,6 +751,9 @@ const scopedNames = {
       "self.motion_kwargs": "控制运动感知分组的配置字典。",
       disp_norms: "每个高斯的位移幅度，用来判断运动强弱。",
       "self.vis": "最远点采样的记录开关，用来收集采样结果供可视化。",
+      centers: "每个批次采样得到的三维分组中心坐标。",
+      sorted_idx: "按位移幅度从大到小排列的点下标。",
+      n_high: "记录的高运动点数量。",
       "self.last_centers": "最近一次采样选出的分组中心坐标。",
       "self.last_high_idx": "最近一次记录的高运动点索引。",
     }],
@@ -680,7 +772,9 @@ const scopedNames = {
     }],
     [410, 521, {
       "self.cache": "编码器缓存的近邻特征，后续可复用以减少分组计算。",
-      "self.cache_knn_idx": "编码器缓存的近邻索引，散度正则可以复用。",
+      "self.cache_knn_idx": "编码器缓存的各组近邻点索引。",
+      neighbors: "每个分组的近邻点特征张量。",
+      knn_idx: "每个分组中心对应的近邻点下标。",
       "self.g0_cache": "编码器缓存的共享初始状态 g0，用于复用上一次的编码结果。",
     }],
     [533, 555, {
@@ -792,7 +886,7 @@ let proseTypes;
 
 function vagueNameMeaning(value) {
   const text = typeof value === "string" ? value : value?.description || "";
-  return /^(?:代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存(?:右侧|表达式|对应语句算出的)|由 .+ 提供的值|.+，由 .+ 提供。$|写入值的|把[^。]+(?:保存到|赋给)[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
+  return /^(?:使用.+的值[。.]?$|保存本轮循环取到|代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存(?:右侧|表达式|对应语句算出的)|由 .+ 提供的值|.+，由 .+ 提供。$|写入值的|把[^。]+(?:保存到|赋给)[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
 }
 
 function shortMeaning(value) {
@@ -825,6 +919,7 @@ function collectNameMeanings(file, first, last) {
     : /\.(?:c|cc|cpp|cu|cuh|h|hpp|inl)$/.test(path) ? Object.entries(nativeTypes) : []);
   const local = new Map();
   const variableNames = new Set();
+  const loopBindings = new Map();
   const formalParameters = new Set();
   const ambiguous = new Set();
   const entries = expressionIndex.files[path] || {};
@@ -912,7 +1007,7 @@ function collectNameMeanings(file, first, last) {
   for (const [name, detail] of local) if (!names.has(name)) names.set(name, detail);
   if (path.endsWith(".py")) {
     for (const [type, meaning] of projectTypeNames()) if (!names.has(type)) names.set(type, meaning);
-    addLocalBindings(file, lines, names, variableNames, first, last);
+    addLocalBindings(file, lines, names, variableNames, loopBindings, first, last);
     addImportedModuleNames(file, lines, names, first, last);
   }
   for (let line = first; line <= last; line++) {
@@ -929,6 +1024,24 @@ function collectNameMeanings(file, first, last) {
     if (start <= first && last <= end) {
       for (const [name, meaning] of Object.entries(meanings)) names.set(name, meaning);
     }
+  }
+  for (const [name, meaning] of loopBindings) names.set(name, meaning);
+  const gaussianOwners = {
+    "train.py": ["scene.gaussians", "self.gaussians"],
+    "render.py": ["gaussians"],
+    "gaussian_renderer/__init__.py": ["pc"],
+    "scene/gaussian_model.py": ["self"],
+  }[path] || [];
+  for (const [field, meaning] of Object.entries(expressionIndex.gaussianProperties || {})) {
+    for (const owner of gaussianOwners) {
+      const name = owner + "." + field;
+      names.set(name, meaning);
+      names.set(name + ".shape", "该张量各个维度的长度。第 0 维是高斯数量。");
+    }
+  }
+  for (let line = first; line <= last; line++) {
+    const valueName = entries[line]?.valueName;
+    if (valueName) names.set(...valueName);
   }
   const declaration = entries[first]?.definition;
   if (declaration) {
@@ -1031,7 +1144,7 @@ function addImportedModuleNames(file, lines, names, first, last) {
   }
 }
 
-function addLocalBindings(file, lines, names, variableNames, first, last) {
+function addLocalBindings(file, lines, names, variableNames, loopBindings, first, last) {
   const visible = lines.slice(first - 1, last).join(" ").matchAll(codeNames);
   const symbols = new Set();
   for (const [token] of visible) {
@@ -1064,15 +1177,21 @@ function addLocalBindings(file, lines, names, variableNames, first, last) {
       }
       continue;
     }
-    if (names.has(name)) continue;
+    const contextId = nameContextIndex.files[file.path]?.[at]?.[name];
+    const indexedMeaning = contextId === undefined ? "" : nameContextIndex.meanings[contextId];
+    const definition = file.path + " · 第 " + at + " 行";
+    if (role === "iteration" && indexedMeaning) {
+      loopBindings.set(name, {description: indexedMeaning, source: definition});
+      continue;
+    }
+    if (names.has(name) && !vagueNameMeaning(names.get(name))) continue;
     const records = expressionIndex.files[file.path] || {};
     const row = records[at];
     let description = "";
     if (variableNames.has(name)) {
-      const contextId = nameContextIndex.files[file.path]?.[at]?.[name];
       description = shortMeaning(row?.outer && row.nodes[0].result)
         || shortMeaning(projectManual[file.path]?.[at]?.result)
-        || (contextId !== undefined ? nameContextIndex.meanings[contextId] : "");
+        || indexedMeaning;
     } else if (role === "function" || role === "class") {
       description = shortMeaning(row?.definition?.purpose);
     }
@@ -1081,7 +1200,7 @@ function addLocalBindings(file, lines, names, variableNames, first, last) {
       assignment: from ? "当前函数使用的局部数据。" : "可由当前文件中的函数使用的模块级变量。",
       attribute: "随对象实例保存的数据。",
       unpack: "从一组结果中取出的独立分量。",
-      iteration: "保存本轮循环取到的值或其中的一项。",
+      iteration: "此变量的具体含义待核实，可先查看它遍历的数据。",
       exception: "保存这一分支捕获到的异常对象。",
       resource: "接收进入当前资源管理块时得到的对象。",
       function: "本文件在这里定义的函数。",
@@ -1091,7 +1210,7 @@ function addLocalBindings(file, lines, names, variableNames, first, last) {
     };
     names.set(name, {
       description: description || roles[role],
-      source: file.path + " · 第 " + at + " 行",
+      source: definition,
     });
   }
 }
@@ -1136,7 +1255,7 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
   return "";
 }
 
-function splitCodeTerms(node, meanings, prose, source = false, language = "") {
+function splitCodeTerms(node, meanings, prose, source = false, language = "", localMeaning) {
   const text = node.nodeValue;
   const parts = document.createDocumentFragment();
   const native = Boolean(source && /^(?:c|cc|cpp|cu|cuh|h|hpp|inl|js|css)$/.test(language));
@@ -1168,20 +1287,25 @@ function splitCodeTerms(node, meanings, prose, source = false, language = "") {
     }
     if (!simpleName.test(token) || keywords.has(token)) continue;
     const keys = [...token.matchAll(/[A-Za-z_$][\w$]*/g)];
-    const candidate = meanings.get(token);
+    const candidate = localMeaning?.(token, match.index) || meanings.get(token);
     const meaning = !vagueNameMeaning(candidate) && candidate;
     const rest = text.slice(match.index + token.length);
     if (!source && !keys.some(key => meanings.has(token.slice(0, key.index + key[0].length)))) continue;
     parts.append(text.slice(offset, match.index));
     const target = formatAsCode ? add(parts, "code") : parts;
-    if (meaning && (keys.length === 1 || prose)) {
+    const precededByDot = source && language === "py" && text[match.index - 1] === ".";
+    const chainedMethod = precededByDot && Object.hasOwn(tensorMethods, token) && /^\s*\(/.test(rest);
+    if (chainedMethod) {
+      insertTerm(target, token, token, tensorMethods[token], prose);
+    } else if (meaning && (keys.length === 1 || prose)) {
       insertTerm(target, token, token, meaning, prose);
     } else {
       let start = 0;
       for (const [index, {[0]: key, index: column}] of keys.entries()) {
         target.append(token.slice(start, column));
         const qualified = token.slice(0, column + key.length);
-        const mapped = meanings.get(qualified);
+        const isMethod = language === "py" && index > 0 && index === keys.length - 1 && /^\s*\(/.test(rest);
+        const mapped = (isMethod && Object.hasOwn(tensorMethods, key) && tensorMethods[key]) || localMeaning?.(qualified, match.index + column) || meanings.get(qualified);
         const detail = mapped && !vagueNameMeaning(mapped) ? mapped
           : source && sourceNameRole(key, qualified, index, keys.length, text.slice(0, match.index), rest, language);
         if (detail) insertTerm(target, key, qualified, detail, prose);
@@ -1318,6 +1442,15 @@ function splitConfigurationTerms(node, language, path) {
   }
 }
 
+function repeatedLoopBindings(file, first, last) {
+  const duplicates = new Map();
+  for (const [name, entries] of Object.entries(file.bindings || {})) {
+    const matching = entries.filter(([at, , , role]) => role === "iteration" && first <= at && at <= last);
+    if (matching.length > 1) duplicates.set(name, matching);
+  }
+  return duplicates;
+}
+
 function addExplanationTerms(panel, file, line) {
   const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
   const nodes = [];
@@ -1325,6 +1458,7 @@ function addExplanationTerms(panel, file, line) {
     if (/[\w\u3400-\u9fff]/.test(node.nodeValue)) nodes.push(node);
   }
   const scopeMeanings = new Map();
+  const snippetBindings = new WeakMap();
   const language = file.path.split(".").at(-1).toLowerCase();
   const sourceLanguage = /^(?:py|cu|cuh|c|cc|cpp|h|hpp|inl|js|sh|bash|css|yml|yaml|cmake|in)$/.test(language)
     || /(?:^|\/)CMakeLists\.txt$/.test(file.path);
@@ -1361,7 +1495,28 @@ function addExplanationTerms(panel, file, line) {
       } else {
         const source = Boolean(sourceLanguage && (snippet || code?.closest(".block-outline, .definition-return-code")));
         const fragments = paragraph && !code ? splitGlossaryTerms(node) : [node];
-        for (const fragment of fragments) splitCodeTerms(fragment, meanings, !snippet, source, language);
+        const offsets = snippet && excerptLineOffsets.get(snippet);
+        let localMeaning;
+        if (offsets) {
+          if (!snippetBindings.has(snippet)) snippetBindings.set(snippet, repeatedLoopBindings(file, first, last));
+          const repeated = snippetBindings.get(snippet);
+          if (repeated.size) {
+            const range = document.createRange();
+            range.selectNodeContents(snippet);
+            range.setEndBefore(node);
+            const start = range.toString().length;
+            localMeaning = (name, offset) => {
+              const at = first + offsets.findLastIndex(value => value <= start + offset);
+              const binding = repeated.get(name)?.findLast(([definition, from, to]) =>
+                definition === at || from <= at && at <= to && definition <= at);
+              const id = binding && nameContextIndex.files[file.path]?.[binding[0]]?.[name];
+              if (id !== undefined) {
+                return {description: nameContextIndex.meanings[id], source: file.path + " · 第 " + binding[0] + " 行"};
+              }
+            };
+          }
+        }
+        for (const fragment of fragments) splitCodeTerms(fragment, meanings, !snippet, source, language, localMeaning);
       }
     }
   }

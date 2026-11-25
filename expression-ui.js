@@ -34,8 +34,9 @@ function findAuditedCall(nodes, name, line, column) {
 }
 
 function hasExpressionDetails(nodes) {
-  return nodes.some(node => node.kind !== "container"
-    || node.parts.some(([, , children]) => hasExpressionDetails(children)));
+  return nodes.some(node => ["container", "and", "or"].includes(node.kind)
+    ? node.parts.some(([, , children]) => hasExpressionDetails(children))
+    : true);
 }
 
 function showExpressionCall(parent, call, outer, written = null, effect = "") {
@@ -78,11 +79,6 @@ function showCollectionOverview(card, note) {
 function showExpressions(parent, nodes) {
   if (!nodes.length) return;
   const list = add(parent, "dl", null, "expression-tree expression-steps");
-  const descriptions = {
-    choice: "先判断条件，再计算被选中的分支。",
-    and: "从左到右求值，**遇到假值就停止**。",
-    or: "从左到右求值，**遇到真值就停止**。"
-  };
   function row(node, label, labelCode = false, role = "") {
     const entry = add(list, "div", null, "expression-node parameter-row");
     entry.dataset.kind = node.kind;
@@ -98,6 +94,12 @@ function showExpressions(parent, nodes) {
         // A literal groups values. Nested computations already describe what makes the values.
         for (const [label, , children] of node.parts) {
           for (const child of children) display(child, [role, label].filter(Boolean).join(" · "));
+        }
+        break;
+      case "and":
+      case "or":
+        for (const [, , children] of node.parts) {
+          for (const child of children) display(child, role || "参与条件判断");
         }
         break;
       case "comprehension": {
@@ -127,9 +129,7 @@ function showExpressions(parent, nodes) {
         break;
       }
       default: {
-        const detail = row(node, node.name || ({choice: "条件表达式", and: "and", or: "or"}[node.kind] ?? "表达式"), false, role);
-        const summary = descriptions[node.kind];
-        if (summary) appendInlineCode(add(detail, "p"), summary);
+        const detail = row(node, node.name || (node.kind === "choice" ? "条件表达式" : "表达式"), false, role);
         for (const [label, text, children] of node.parts || []) {
           if (children.length) {
             for (const child of children) display(child, [role, label].filter(Boolean).join(" · "));
@@ -161,12 +161,12 @@ function showChainExplanation(card, chain, record, written) {
   const sh = path === "scene/gaussian_model.py" && excerpt?.match(/^\s*(f_dc|f_rest) = self\._features_(dc|rest)\.detach\(/);
   const shape = sh?.[1] === "f_rest" ? "K" : "1";
   const purpose = sh ? "把每个高斯的" + (shape === "K" ? "其余球谐颜色系数" : "零阶球谐颜色系数")
-    + "整理成一行，准备写入 PLY 文件。输入形状为 " + quoteCode("(N, " + shape + ", 3)")
+    + "整理成一行。输入形状为 " + quoteCode("(N, " + shape + ", 3)")
     + "，" + quoteCode("N") + " 是高斯数量，三个颜色通道对应 RGB。"
     + (shape === "K" ? quoteCode("K") + " 是每个颜色通道的非零阶球谐系数数量。" : "")
     : written?.purpose || "从 " + quoteCode(chain[0].name) + " 开始，每次调用的结果交给下一个方法。";
   const detail = sh ? {
-    detach: "取出用于导出的数值，这条路径**不再跟踪梯度**。",
+    detach: "返回数值相同、**断开梯度跟踪**的张量。",
     transpose: "**交换**第 " + quoteCode("1") + " 轴（系数）和第 " + quoteCode("2") + " 轴（RGB），形状从 " + quoteCode("(N, " + shape + ", 3)") + " 变为 "
       + quoteCode("(N, 3, " + shape + ")") + "。",
     flatten: "从 " + quoteCode("start_dim=1") + " 开始合并到末轴，**保留高斯轴**。每行依次存放 R、G、B 的系数。",
@@ -175,7 +175,7 @@ function showChainExplanation(card, chain, record, written) {
     numpy: "把 CPU 张量转换成 NumPy 数组。",
   } : {};
   const result = sh ? quoteCode(sh[1]) + " 是形状为 " + quoteCode(shape === "K" ? "(N, 3*K)" : "(N, 3)")
-    + " 的 NumPy 数组。每行对应一个高斯，之后与位置、旋转等属性拼接。"
+    + " 的 NumPy 数组。每行对应一个高斯。"
     : written?.result || [last.result, record.effect].filter(Boolean).join(" ") || "整条语句使用最后一次调用的返回值。";
 
   showExplanationSections(card, [

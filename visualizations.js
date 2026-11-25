@@ -38,12 +38,14 @@ function restoreVisibleVisualization(ids) {
 }
 
 function jumpToVisualization(id, path, line, keyboard = false) {
-  preferredVisualization = coreVisualizations.has(id) ? id : null;
-  odeChapter = null;
-  jumpToSource(path, line);
-  const panel = findVisualization(id);
-  revealVisualization(panel);
-  if (keyboard) panel?.querySelector('.figure-target[aria-pressed="true"]')?.focus({preventScroll: true});
+  navigateReader(() => {
+    preferredVisualization = coreVisualizations.has(id) ? id : null;
+    odeChapter = null;
+    moveToSource(path, line);
+    const panel = findVisualization(id);
+    revealVisualization(panel);
+    if (keyboard) panel?.querySelector('.figure-target[aria-pressed="true"]')?.focus({preventScroll: true});
+  });
 }
 
 function matchesVisualizationTarget(target, path, line) {

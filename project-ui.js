@@ -2,6 +2,7 @@ const projectGuide = window.PARTICLE_GUIDE;
 const projectNotes = window.PARTICLE_PROJECT_NOTES;
 const projectManual = window.PARTICLE_MANUAL;
 const parameterIndex = window.PARTICLE_PARAMETERS;
+const excerptLineOffsets = new WeakMap();
 let topic = "overview";
 
 function topicFor(path, line) {
@@ -25,8 +26,10 @@ function appendCodeExcerpt(parent, first, last, keepLayout = false) {
   const excerpt = add(parent, "pre", null, keepLayout ? "line-excerpt structured-excerpt" : "line-excerpt");
   if (activeFile.path.endsWith(".py")) {
     const ranges = [];
+    const offsets = [];
     let length = 0;
     const parts = physical.map((line, index) => {
+      offsets.push(length);
       const removed = keepLayout ? leading : line.length - line.trimStart().length;
       for (const [start, end] of activeFile.interpolations?.[first + index] || []) {
         ranges.push([length + start - removed, length + end - removed]);
@@ -36,6 +39,7 @@ function appendCodeExcerpt(parent, first, last, keepLayout = false) {
       return text;
     });
     highlightPython(excerpt, parts.join(keepLayout ? "\n" : " ") || "（空行）", ranges);
+    if (first < last) excerptLineOffsets.set(excerpt, offsets);
   } else {
     const text = physical.map(line => keepLayout ? line.slice(leading) : line.trim());
     excerpt.textContent = text.join(keepLayout ? "\n" : " ") || "（空行）";
@@ -316,6 +320,11 @@ function renderProjectStatement(list, first, last, line, selected) {
     selectLine(first, true);
   };
   appendCodeExcerpt(item, first, last, Boolean((cameraSelection || mixed || structuredCalls.length) && last - first >= 3));
+  const focusedNote = audited?.conditionNote || audited?.valueNote;
+  if (focusedNote) {
+    showExplanationSections(item, [["这行在做什么", focusedNote]]);
+    return;
+  }
   if (audited?.collectionNote) {
     showCollectionOverview(item, audited.collectionNote);
     return;

@@ -7,6 +7,9 @@ const byPath = new Map(files.map(file => [file.path, file]));
 const code = element("code");
 const reading = element("reading");
 const sourceScopeRange = element("source-scope-range");
+const readingBack = element("reading-back");
+const readingHistory = [];
+let showingOverview = false;
 let activeFile, activeLine, rows = [], highlighted = [], statementEnds = new Map();
 let sourceScopes = [], sourceScopeSegments = [], currentSourceScope = null;
 
@@ -313,6 +316,7 @@ function showLineGroup(group) {
 
 
 function showExplanation() {
+  showingOverview = false;
   hideNameTip();
   const visibleDiagrams = visibleVisualizations();
   reading.replaceChildren();
@@ -335,7 +339,74 @@ function showExplanation() {
   restoreVisibleVisualization(visibleDiagrams);
 }
 
+function showMethodOverview() {
+  showingOverview = true;
+  hideNameTip();
+  reading.replaceChildren();
+  reading.scrollTop = 0;
+  showOverview();
+}
+
+function readerScroll() {
+  return [reading.scrollLeft, reading.scrollTop, code.scrollLeft, code.scrollTop, window.scrollX, window.scrollY];
+}
+
+function navigateReader(move) {
+  const previous = activeFile ? {
+    path: activeFile.path,
+    line: rows.length ? activeLine : null,
+    topic,
+    overview: showingOverview,
+    chapter: odeChapter && {...odeChapter},
+    visualization: preferredVisualization,
+    scroll: readerScroll(),
+    details: Array.from(reading.querySelectorAll("details"), detail => detail.open),
+  } : null;
+  move(previous);
+  if (!previous) return;
+  const changed = previous.path !== activeFile.path
+    || previous.line !== (rows.length ? activeLine : null)
+    || previous.topic !== topic || previous.overview !== showingOverview
+    || previous.chapter?.step !== odeChapter?.step || previous.chapter?.caller !== odeChapter?.caller
+    || previous.visualization !== preferredVisualization
+    || readerScroll().some((value, index) => value !== previous.scroll[index])
+    || Array.from(reading.querySelectorAll("details")).some((detail, index) => detail.open !== previous.details[index]);
+  if (changed) {
+    readingHistory.push(previous);
+    readingBack.disabled = false;
+  }
+}
+
+function returnToReadingPosition(position = readingHistory.at(-1)) {
+  const index = readingHistory.lastIndexOf(position);
+  if (index < 0) return;
+  readingHistory.length = index;
+  readingBack.disabled = !readingHistory.length;
+  odeChapter = position.chapter && {...position.chapter};
+  preferredVisualization = position.visualization;
+  if (activeFile.path === position.path && rows.length) {
+    selectLine(position.line, false);
+  } else {
+    loadFile(position.path, position.line ?? 1);
+  }
+  if (position.overview) showMethodOverview();
+  topic = position.topic;
+  updateTopics();
+  reading.querySelectorAll("details").forEach((detail, index) => {
+    detail.open = Boolean(position.details[index]);
+  });
+  const [readingLeft, readingTop, codeLeft, codeTop, pageLeft, pageTop] = position.scroll;
+  reading.scrollTo(readingLeft, readingTop);
+  code.scrollTo(codeLeft, codeTop);
+  window.scrollTo(pageLeft, pageTop);
+}
+
 function jumpToSource(path, line) {
+  if (!byPath.has(path)) return;
+  navigateReader(() => moveToSource(path, line));
+}
+
+function moveToSource(path, line) {
   if (activeFile?.path === path) {
     code.scrollLeft = 0;
     selectLine(line, true);
@@ -517,10 +588,10 @@ function fileButton(parent, path, title) {
   button.append(title);
   button.dataset.path = path;
   button.setAttribute("aria-current", String(activeFile?.path === path));
-  button.onclick = () => {
+  button.onclick = () => navigateReader(() => {
     odeChapter = null;
     loadFile(path, notes[path]?.[0][0] || 1);
-  };
+  });
 }
 
 const tree = element("tree");
@@ -691,16 +762,13 @@ for (const [id, label, path, line] of projectGuide.topics) {
       openOdeChapter();
       return;
     }
-    odeChapter = null;
-    jumpToSource(path, line);
-    topic = id;
-    updateTopics();
-    if (id === "overview") {
-      hideNameTip();
-      reading.replaceChildren();
-      reading.scrollTop = 0;
-      showOverview();
-    }
+    navigateReader(() => {
+      odeChapter = null;
+      moveToSource(path, line);
+      topic = id;
+      updateTopics();
+      if (id === "overview") showMethodOverview();
+    });
   };
 }
 element("coverage").textContent = files.filter(file => file.text != null).length + " 个文本文件可浏览";
@@ -710,6 +778,15 @@ element("toggle").onclick = () => {
   element("toggle").textContent = hidden ? "展开文件" : "收起文件";
   element("toggle").setAttribute("aria-expanded", String(!hidden));
 };
+const mastActions = readingBack.parentElement;
+const compactLayout = window.matchMedia("(max-width: 650px)");
+function placeReadingBack() {
+  if (compactLayout.matches) document.body.append(readingBack);
+  else mastActions.prepend(readingBack);
+}
+compactLayout.addEventListener("change", placeReadingBack);
+placeReadingBack();
+readingBack.onclick = () => returnToReadingPosition();
 element("filter").oninput = filterFiles;
 element("jump").onsubmit = event => {
   event.preventDefault();

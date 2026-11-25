@@ -7,10 +7,12 @@ const decoderOutputs = [
 ];
 
 function jumpFromDecoder(line, keyboard) {
-  jumpToSource(decoderSourcePath, line);
-  const panel = reading.querySelector(".decoder-graphic");
-  revealVisualization(panel);
-  if (keyboard) panel?.querySelector('[data-decoder-line="' + line + '"]')?.focus({preventScroll: true});
+  navigateReader(() => {
+    moveToSource(decoderSourcePath, line);
+    const panel = reading.querySelector(".decoder-graphic");
+    revealVisualization(panel);
+    if (keyboard) panel?.querySelector('[data-decoder-line="' + line + '"]')?.focus({preventScroll: true});
+  });
 }
 
 function decoderStage(svg, line, label, selected, bounds) {
