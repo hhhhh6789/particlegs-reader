@@ -296,7 +296,7 @@ function showLineGroup(group) {
     if (paragraph) appendInlineCode(paragraph, body);
     if (parameters) showParameters(item, parameters);
     const audited = expressionIndex.files[activeFile.path]?.[line];
-    if (call && audited?.definition) showAuditedDefinition(item, audited.definition, call);
+    if (audited?.definition) showAuditedDefinition(item, audited.definition);
     else if (call && audited?.outer) showExpressionCall(item, audited.nodes[0], true, call);
     else if (call) showCall(item, call);
     if (isActive && line === 643) showOdeCallbackLink(item);

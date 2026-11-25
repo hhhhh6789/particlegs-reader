@@ -738,8 +738,6 @@ window.PARTICLE_MANUAL = {
       "explainNestedInline": true
     },
     "39": {
-      "signatureSummary": "定义 `Scene` 的**初始化方法**。创建场景时需要传入配置 `args` 和高斯模型 `gaussians`，另有控制加载和相机准备的可选参数。",
-      "purpose": "创建 `Scene(...)` 时，Python 自动调用这个方法。",
       "parameters": [
         [
           "self",
@@ -777,8 +775,7 @@ window.PARTICLE_MANUAL = {
           "skip_test",
           "跳过测试相机。"
         ]
-      ],
-      "result": "调用 `Scene(...)` 得到**新的场景对象**。`__init__` 执行初始化，返回 `None`。"
+      ]
     },
     "43": [
       "把配置中的模型目录保存到当前场景对象里。"

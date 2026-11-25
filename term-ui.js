@@ -808,18 +808,33 @@ function shortMeaning(value) {
   return summary.length <= 125 ? summary : "";
 }
 
+function conciseIdentity(value) {
+  const sentence = value?.match(/[^。！？；]+/)?.[0]?.trim();
+  return sentence ? sentence + "。" : "";
+}
+
+function parameterIdentity(value) {
+  if (typeof value !== "string") return "";
+  const meaning = value.replace(/第\s*\d+\s*行(?:判断条件|提供循环的输入|参与计算或调用|参与构造返回结果)[\s\S]*$/, "");
+  return conciseIdentity(shortMeaning(meaning));
+}
+
 function collectNameMeanings(file, first, last) {
   const {path} = file;
   const names = new Map(path.endsWith(".py") ? [...Object.entries(moduleNames), ...Object.entries(knownNames)]
     : /\.(?:c|cc|cpp|cu|cuh|h|hpp|inl)$/.test(path) ? Object.entries(nativeTypes) : []);
   const local = new Map();
   const variableNames = new Set();
+  const formalParameters = new Set();
   const ambiguous = new Set();
   const entries = expressionIndex.files[path] || {};
   const scope = file.symbols?.findLast(([from, to, , kind]) => kind === "函数" && from <= first && first <= to);
-  const put = (name, value) => {
-    const meaning = shortMeaning(value);
-    if (simpleName.test(name || "") && meaning) names.set(name, meaning);
+  const putParameter = (name, value) => {
+    name = name?.replace(/^\*{1,2}/, "");
+    if (!simpleName.test(name || "")) return;
+    formalParameters.add(name);
+    const meaning = parameterIdentity(value);
+    if (meaning) names.set(name, meaning);
   };
   const remember = (name, value) => {
     const meaning = shortMeaning(value);
@@ -832,16 +847,15 @@ function collectNameMeanings(file, first, last) {
   const definitionAt = scope?.[0] ?? first;
   const definitionEnd = scope ? Math.min(scope[1], scope[0] + 7) : last;
   for (let line = definitionAt; line <= definitionEnd; line++) {
-    for (const [label, detail, , metadata] of entries[line]?.definition?.rows || []) {
-      put(metadata?.name || label, detail);
+    for (const [label, detail, key, metadata] of entries[line]?.definition?.rows || []) {
+      putParameter(metadata?.name || key || label, detail);
     }
-    for (const [name, detail] of projectManual[path]?.[line]?.parameters || []) put(name, detail);
     if (entries[line]?.definition) break;
   }
 
   function readArguments(arguments_, written) {
     for (const [label, fallback, children, info] of arguments_) {
-      const meaning = argumentMeaning(label, info, fallback, written);
+      const meaning = parameterIdentity(argumentMeaning(label, info, fallback, written));
       remember(info?.name, meaning);
       if (info?.value && info.value !== info.name && simpleName.test(info.value)) {
         remember(info.value, meaning);
@@ -853,10 +867,11 @@ function collectNameMeanings(file, first, last) {
   function readNode(node, written) {
     if (node.kind === "call") {
       const name = shortCallName(node.name);
-      remember(name, node.purpose || node.result);
-      if (node.target && !names.has(name)) {
-        const [origin, definitionLine] = node.target;
-        const detail = shortMeaning(node.purpose || node.result);
+      const [origin, definitionLine] = node.target || [];
+      const purpose = expressionIndex.files[origin]?.[definitionLine]?.definition?.purpose || node.purpose || node.result;
+      remember(name, purpose);
+      if (origin && !names.has(name)) {
+        const detail = shortMeaning(purpose);
         if (detail) names.set(name, {description: detail, source: origin + " · 第 " + definitionLine + " 行"});
       }
       const member = name.split(/\.|::|->/).at(-1);
@@ -881,13 +896,16 @@ function collectNameMeanings(file, first, last) {
     entry?.nodes.forEach((node, index) => readNode(node, index === 0 && entry.outer ? parameterGuidance : undefined));
     const assignment = lines[line - 1]?.match(/^\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*=(?!=)/);
     if (assignment) remember(assignment[1], written?.result || (entry?.outer && entry.nodes[0].result));
-    for (const [name, detail] of written?.parameters || []) remember(name, detail);
+    for (const [name, detail] of written?.parameters || []) remember(name, parameterIdentity(detail));
   }
   if (!entries[first]?.nodes.some(node => node.kind === "call")) {
     for (const [, , kind, , rows] of visibleParameterRecords(path, first, first, last)) {
       if (kind === "call") readArguments(legacyCallArguments(rows), projectManual[path]?.[first]?.parameters);
       else if (kind === "definition") {
-        for (const [label, detail, key] of rows) remember(key || parameterNames(label)[0], detail);
+        for (const [label, detail, key] of rows) {
+          const name = key || parameterNames(label)[0];
+          if (!formalParameters.has(name)) putParameter(name, detail);
+        }
       }
     }
   }
@@ -912,6 +930,12 @@ function collectNameMeanings(file, first, last) {
       for (const [name, meaning] of Object.entries(meanings)) names.set(name, meaning);
     }
   }
+  const declaration = entries[first]?.definition;
+  if (declaration) {
+    const name = declaration.name.split(/\.|::/).at(-1);
+    const meaning = shortMeaning(declaration.purpose);
+    if (meaning) names.set(name, {description: meaning, source: path + " · 第 " + first + " 行"});
+  }
   for (let line = first; line <= last; line++) {
     for (const [name, [canonical, path, definitionLine]] of Object.entries(file.types?.[line] || {})) {
       const description = Object.hasOwn(typeMeanings, canonical) ? typeMeanings[canonical] : "";
@@ -923,13 +947,12 @@ function collectNameMeanings(file, first, last) {
       }
     }
   }
-  for (const name of variableNames) {
+  for (const name of new Set([...variableNames, ...formalParameters])) {
     const current = names.get(name);
     if (!current) continue;
     const description = typeof current === "string" ? current : current.description;
-    const sentence = description?.match(/[^。！？；]+[。！？；]?/)?.[0];
-    if (sentence) {
-      const concise = sentence.replace(/[。！？；]$/, "") + "。";
+    const concise = formalParameters.has(name) ? parameterIdentity(description) : conciseIdentity(description);
+    if (concise) {
       names.set(name, typeof current === "string" ? concise : {...current, description: concise});
     }
   }

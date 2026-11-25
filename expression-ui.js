@@ -182,9 +182,6 @@ function showChainExplanation(card, chain, record, written) {
 }
 
 function showDefinitionResults(parent, outcomes) {
-  if (!outcomes.length) return;
-  const hasYield = outcomes.some(outcome => outcome.kind === "yield");
-  add(parent, "h3", hasYield ? "函数内的返回与产出位置" : "函数内的返回位置", "definition-results-heading");
   const list = add(parent, "ul", null, "definition-results");
   for (const {line, code, meaning} of outcomes) {
     const row = add(list, "li");
@@ -198,48 +195,23 @@ function showDefinitionResults(parent, outcomes) {
   }
 }
 
-function definitionHeadline(definition) {
-  const name = definition.name.split(".").at(-1);
-  const names = [];
-  let optional = 0;
-  for (const [label, , key, metadata] of definition.rows) {
-    const parameter = metadata?.name || key || label;
-    if (parameter === "self" || parameter === "cls") continue;
-    if (parameter.startsWith("*") || metadata?.default != null || label.includes("=")) optional++;
-    else names.push(quoteCode(parameter));
-  }
-  const caption = name === "__init__" ? "定义初始化方法 " : "定义 ";
-  const required = names.length ? "。调用时需要传入 " + names.join("、") : "";
-  const extra = optional ? (required ? "，另有" : "。调用时可传入") + optional + " 项可选输入" : "";
-  return caption + quoteCode(definition.name + "()") + required + extra + "。";
-}
-
-function showAuditedDefinition(card, definition, manual) {
-  const written = manual && !Array.isArray(manual) ? manual : null;
-  appendInlineCode(add(card, "p", null, "statement-summary"),
-    written?.signatureSummary || definitionHeadline(definition));
-
-  const purpose = written?.signatureSummary ? "" : written?.purpose;
-  const summary = written?.result || definition.result?.replace("执行函数体中的操作。走到末尾时返回 None。", "函数执行到末尾时返回 None。");
-  if (!purpose && !summary && !definition.outcomes.length) return;
+function showAuditedDefinition(card, definition) {
+  const {purpose, outcomes} = definition;
+  const implicitResult = activeFile.path.endsWith(".py")
+    ? "执行到函数末尾时返回 " + quoteCode("None") + "。"
+    : "无返回值。";
   const details = add(card, "details", null, "definition-details");
   add(details, "summary", "函数详情");
-  showCall(details, {
-    purpose,
-    result: (summary || definition.outcomes.length) ? section => {
-      const [first] = definition.outcomes;
-      const useSummaryInRow = definition.outcomes.length === 1 && first.meaning === definition.result;
-      if (summary && !useSummaryInRow) appendInlineCode(add(section, "p"), summary);
-      const outcomes = useSummaryInRow ? [{...first, meaning: summary}] : definition.outcomes;
-      showDefinitionResults(section, outcomes);
-    } : null
-  });
+  showExplanationSections(details, [
+    ["函数作用", purpose],
+    ["返回结果", outcomes.length ? section => showDefinitionResults(section, outcomes) : implicitResult],
+  ]);
 }
 
 function showExpressionAudit(card, record, manual, selected) {
   const {definition, effect, nodes, outer} = record;
   if (definition && !Array.isArray(manual)) {
-    showAuditedDefinition(card, definition, manual);
+    showAuditedDefinition(card, definition);
     const meaningful = nodes.filter(node => node.role !== "默认值" || node.kind !== "container"
       || node.parts.some(([, , children]) => children.length));
     if (selected && meaningful.length) showExpressions(card, meaningful);

@@ -789,13 +789,6 @@ aside { background: rgba(241, 246, 255, .52); }
   padding: .1rem .4rem;
 }
 .expression-link:hover { background: rgba(84, 104, 169, .12); }
-.definition-results-heading {
-  color: var(--muted);
-  font-size: .75rem;
-  font-weight: 650;
-  line-height: 1.45;
-  margin: .65rem 0 .2rem;
-}
 .definition-results {
   font-size: .8rem;
   line-height: 1.55;
@@ -811,6 +804,7 @@ aside { background: rgba(241, 246, 255, .52); }
   border-top: 1px solid rgba(59, 77, 124, .10);
   padding-block: .26rem;
 }
+.definition-results li:first-child { border-top: 0; }
 .definition-results button {
   justify-self: start;
   font-size: inherit;
