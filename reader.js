@@ -494,11 +494,16 @@ function initializePaneSplitter() {
   const splitter = element("reader-splitter");
   if (!splitter) return;
   const panes = splitter.parentElement;
+  const lessonPane = element("lesson-pane");
+  const sourcePane = element("source-pane");
+  const swap = element("swap-panes");
   const storageKey = "particlegs-lesson-width";
+  const orderKey = "particlegs-source-first";
   const min = Number(splitter.getAttribute("aria-valuemin"));
   const max = Number(splitter.getAttribute("aria-valuemax"));
   let share = null;
   let drag = null;
+  let sourceFirst = false;
 
   function defaultShare() {
     return Number.parseFloat(getComputedStyle(panes).getPropertyValue("--lesson-default")) || 44;
@@ -531,12 +536,37 @@ function initializePaneSplitter() {
     }
   }
 
+  function setPaneOrder(value) {
+    sourceFirst = value;
+    const scrollTop = code.scrollTop;
+    const scrollLeft = code.scrollLeft;
+    const noteTop = reading.scrollTop;
+    panes.classList.toggle("source-first", value);
+    panes.insertBefore(value ? sourcePane : lessonPane, splitter);
+    panes.append(value ? lessonPane : sourcePane);
+    code.scrollTop = scrollTop;
+    code.scrollLeft = scrollLeft;
+    reading.scrollTop = noteTop;
+    swap.setAttribute("aria-pressed", String(value));
+    swap.title = value ? "当前代码在左，点击恢复讲解在左" : "当前讲解在左，点击将代码放到左侧";
+    hideNameTip();
+  }
+
   try {
     const saved = localStorage.getItem(storageKey);
     if (saved !== null && Number.isFinite(Number(saved))) setShare(Number(saved));
+    if (localStorage.getItem(orderKey) === "true") setPaneOrder(true);
   } catch {
     // The CSS default is used when this page cannot access storage.
   }
+  swap.addEventListener("click", () => {
+    setPaneOrder(!sourceFirst);
+    try {
+      localStorage.setItem(orderKey, String(sourceFirst));
+    } catch {
+      // The order can still be changed when storage is unavailable.
+    }
+  });
   updateValue();
   window.addEventListener("resize", updateValue);
 
@@ -553,7 +583,8 @@ function initializePaneSplitter() {
     if (event.pointerId !== drag?.id) return;
     const width = panes.clientWidth - splitter.offsetWidth;
     if (width > 0 && (event.clientX !== drag.x || share !== drag.original)) {
-      setShare(drag.start + 100 * (event.clientX - drag.x) / width);
+      const direction = sourceFirst ? -1 : 1;
+      setShare(drag.start + direction * 100 * (event.clientX - drag.x) / width);
     }
   });
   splitter.addEventListener("lostpointercapture", event => {
@@ -567,11 +598,16 @@ function initializePaneSplitter() {
     saveShare();
   });
   splitter.addEventListener("keydown", event => {
-    const steps = {ArrowLeft: -2, ArrowRight: 2};
-    if (!Object.hasOwn(steps, event.key) && !["Home", "End", "Enter"].includes(event.key)) return;
-    const value = share ?? defaultShare();
+    const key = event.key;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(key)) return;
     event.preventDefault();
-    setShare(event.key === "Enter" ? null : event.key === "Home" ? min : event.key === "End" ? max : value + steps[event.key]);
+    const leftShare = sourceFirst ? 100 - (share ?? defaultShare()) : share ?? defaultShare();
+    let next = null;
+    if (key === "Home") next = min;
+    if (key === "End") next = max;
+    if (key === "ArrowLeft") next = leftShare - 2;
+    if (key === "ArrowRight") next = leftShare + 2;
+    setShare(sourceFirst && next !== null ? 100 - next : next);
     saveShare();
   });
 }

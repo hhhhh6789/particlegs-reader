@@ -483,16 +483,21 @@ aside { background: rgba(241, 246, 255, .52); }
   main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 .reader-splitter { display: none; }
+.pane-order[aria-pressed=true] { color: var(--accent); background: var(--glass-selection); }
 @media (min-width: 651px) {
   .reader-panes {
     --lesson-default: 44fr;
     --source-default: 56fr;
     --splitter-width: 16px;
     grid-template-columns:
-      minmax(0, var(--lesson-width, var(--lesson-default)))
+      minmax(0, var(--first-pane, var(--lesson-width, var(--lesson-default))))
       var(--splitter-width)
-      minmax(0, var(--source-width, var(--source-default)));
+      minmax(0, var(--last-pane, var(--source-width, var(--source-default))));
     column-gap: 0;
+  }
+  .reader-panes.source-first {
+    --first-pane: var(--source-width, var(--source-default));
+    --last-pane: var(--lesson-width, var(--lesson-default));
   }
   .reader-splitter {
     display: grid;

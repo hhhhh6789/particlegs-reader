@@ -199,15 +199,15 @@ const timeGridNames = {
   "torch.linspace": "生成等距点的函数。这里从起始时间到目标时间取点，包含两个端点。",
   start: "linspace 的形参，指定第一个时间点。这里传入 t_start。",
   end: "linspace 的形参，指定最后一个时间点。这里传入 t_end。",
-  t_start: "起始时间。它是生成的第一个时间点，也是积分开始的时刻。",
-  t_end: "目标时间。它是生成的最后一个时间点，也是要取出状态的时刻。",
+  t_start: "积分开始的时刻，也是生成的第一个时间点。",
+  t_end: "要取出状态的目标时刻，也是生成的最后一个时间点。",
   steps: "linspace 的形参，指定要生成的时间点总数。",
   num_steps: "这次要生成的时间点总数，传给 linspace 的 steps 参数。",
   device: "linspace 的形参，指定新建的时间点张量放在哪个设备上。",
   "g_start.device": "起始状态所在的设备。用它创建时间点，两个张量就会在同一个设备上。",
   dtype: "linspace 的形参，指定时间点用什么数值类型存储。",
   "g_start.dtype": "起始状态的数值类型，例如 float32。时间点沿用这个类型。",
-  g_start: "ODE 积分从这个状态出发。这里读取它的设备和数值类型来创建时间点。",
+  g_start: "ODE 积分的起始状态，创建时间点时沿用它的设备和数值类型。",
 };
 
 const loadOnDemandMeaning = "相机数据按需加载的开关。开启时，训练或渲染用到当前视角才把它的数据移到 GPU。";
@@ -221,6 +221,60 @@ const scopedNames = {
       "self.viewpoint_stack": "当前采样轮次尚未抽到的相机列表。",
       "self.scene.init_cameras": "用于训练预热阶段的相机集合。",
       "self.opt.gradual": "逐步扩大训练时间范围的开关，开启时由早到晚纳入更多视角。",
+    }],
+    [40, 151, {
+      test_psnr: "训练报告返回的平均峰值信噪比，用来衡量评估视角的图像质量。",
+      validation_configs: "评估要遍历的视角分组，包含测试相机和抽取的一组训练相机。",
+      config: "当前参与评估的一组视角及其分组名。",
+      l1_test: "当前分组收集的逐视角 L1 图像误差。",
+      psnr_test: "当前分组收集的逐视角 PSNR。",
+      psnr_value: "当前这一张预测图与真实图的 PSNR。",
+      psnr_fid_reconstruction: "拍摄时间早于评估分界的各视角 PSNR。",
+      psnr_fid_extrapolation: "拍摄时间达到或晚于评估分界的各视角 PSNR。",
+      psnr_fid_reconstruction_mean: "重建时间段内各视角的平均 PSNR。",
+      psnr_fid_extrapolation_mean: "外推时间段内各视角的平均 PSNR。",
+      fid: "当前评估视角对应的拍摄时刻，用来选择高斯形变的时间。",
+      xyz: "每个高斯在参考场景中的三维中心坐标。",
+      sh: "每个高斯颜色的零阶球谐系数。",
+      r: "基础高斯的旋转四元数。",
+      s: "基础高斯沿三个轴的尺度。",
+      a: "基础高斯的不透明度。",
+      feature: "形变网络需要的逐高斯输入，每个高斯对应一行 14 维属性。",
+      deform_pkgs: "目标时刻的高斯形变数据，包含位置、旋转和尺度的变化。",
+      d_xyz: "目标时刻各高斯中心的位移。",
+      d_rotation: "目标时刻各高斯的旋转变化。",
+      d_scaling: "目标时刻各高斯三个轴的尺度变化。",
+      image: "从当前相机视角渲染出的预测 RGB 图像。",
+      gt_image: "当前相机视角对应的真实图像，用作评估的参考。",
+    }],
+    [110, 145, {
+      l1_test: "当前分组在所有视角上的平均 L1 图像误差。",
+      psnr_test: "当前分组在所有视角上的平均 PSNR。",
+    }],
+    [152, 160, {
+      "self.dataset": "训练器使用的数据集与场景配置。",
+      "self.args": "启动训练时解析出的命令行选项。",
+      "self.opt": "训练用的优化配置，包含迭代次数和学习率等设置。",
+    }],
+    [180, 265, {
+      dataset_max_time: "当前训练相机集合中最晚的拍摄时刻。",
+      cur_max_fid: "这一轮训练允许纳入视角的最晚时刻，用来逐步扩大训练的时间范围。",
+      viewpoint_cam: "此次迭代抽到的相机视角，提供相机参数、真实图像和时间。",
+      fid: "此次迭代所选相机的拍摄时刻。",
+      feature: "形变网络的逐高斯输入，每行包含一个高斯的几何和外观属性。",
+      xyz: "每个高斯在参考场景中的三维中心坐标。",
+      sh: "每个高斯颜色的零阶球谐系数。",
+      r: "基础高斯的旋转四元数。",
+      s: "基础高斯沿三个轴的尺度。",
+      a: "基础高斯的不透明度。",
+      d_xyz: "各高斯在当前时刻的中心位移。",
+      d_rotation: "当前时刻各高斯的旋转变化。",
+      d_scaling: "当前时刻各高斯三个轴的尺度变化。",
+      render_pkg_re: "这一轮渲染得到的图像、投影坐标和可见性等数据。",
+      radii: "每个高斯投影到屏幕后的半径，用于训练时判断其屏幕大小。",
+      gt_image: "该视角实际拍摄的图像，用来监督模型。",
+      Ll1: "预测图像与真实图像的逐像素绝对误差均值。",
+      loss: "本次迭代回传给模型的损失，结合图像误差和已启用的正则项。",
     }],
     [195, 195, {
       "viewpoint.fid": "每个候选相机的拍摄时刻，这里取最大的值作为数据中最晚的时刻。",
@@ -241,6 +295,12 @@ const scopedNames = {
       ParamGroup: "命令行配置的基类。把配置对象的属性登记为可从命令行传入的选项。",
       shorthand: "布尔标记，表示当前选项是否还要登记一个简写。",
       "self.white_background": "白色背景开关，控制图像透明区域的合成底色。",
+      "self._resolution": "加载图像时使用的分辨率选项，控制降采样倍率或目标宽度。",
+      "self.max_train_cameras": "加载训练相机时可保留的数量上限。",
+      "self.max_init_cameras": "初始化相机列表可保留的数量上限。",
+      "self.max_val_cameras": "加载验证相机时可保留的数量上限。",
+      "self.max_test_cameras": "加载测试相机时可保留的数量上限。",
+      "g.source_path": "供场景读取器使用的数据集绝对路径。",
       "self.eval": "传给场景读取器的评估模式开关。",
       "self.load2gpu_on_the_fly": loadOnDemandMeaning,
       "self.size": "场景配置中的 size 字段，默认未提供尺寸。",
@@ -253,6 +313,17 @@ const scopedNames = {
     }],
   ],
   "gaussian_renderer/__init__.py": [
+    [20, 27, {
+      w: "相乘所得四元数的标量分量。",
+      x: "相乘所得四元数的第一个向量分量。",
+      y: "相乘所得四元数的第二个向量分量。",
+      z: "相乘所得四元数的第三个向量分量。",
+    }],
+    [33, 165, {
+      screenspace_points: "承接高斯屏幕投影位置梯度的张量，用于训练时决定在哪里增密。",
+      means2D: "传给光栅化器的屏幕空间梯度占位张量。",
+      opacity: "各高斯的不透明度，用于计算它们对像素颜色的贡献。",
+    }],
     [75, 114, {
       scales: "每个高斯沿三个轴的尺度，光栅化器可用它和旋转求三维协方差。",
       rotations: "每个高斯的旋转四元数，用于确定其三维椭球的朝向。",
@@ -262,16 +333,92 @@ const scopedNames = {
     }],
   ],
   "render.py": [
+    [72, 218, {
+      render_root: "当前场景和检查点的输出根目录。",
+      render_path: "预测 RGB 图像的存放目录。",
+      gts_path: "真实参考图像的存放目录。",
+      depth_path: "深度图的存放目录。",
+      speed_path: "记录渲染速度的文本文件路径。",
+      total_time: "所有待渲染视角累计使用的渲染时间。",
+      inter_psnr: "重建时间段的 PSNR 累计值。",
+      outer_psnr: "外推时间段的 PSNR 累计值。",
+      inter_ssim: "重建时间段的 SSIM 累计值。",
+      outer_ssim: "外推时间段的 SSIM 累计值。",
+      inter_lpips: "重建时间段的 LPIPS 累计值。",
+      outer_lpips: "外推时间段的 LPIPS 累计值。",
+      inter_cet: "已经纳入重建时间段统计的视角数量。",
+      outer_cet: "已经纳入外推时间段统计的视角数量。",
+      metric_ssim: "比较两张图像在结构上是否相似的指标对象。",
+      metric_lpips: "比较两张图像在深度特征上是否接近的指标对象。",
+      dxyz0: "所有高斯在初始时刻相对各自基准中心的位移。",
+      sampled_time: "用于检查高斯运动幅度的一组时刻。",
+      static_mask: "标记采样期间运动幅度持续低于阈值的高斯。",
+      motion_mask: "标记被归为运动部分的高斯。",
+      displacement: "每个高斯在当前采样时刻相对初始时刻的移动距离。",
+      to8b: "把零到一之间的图像值转换成可保存的 8 位像素的函数。",
+      fid: "当前渲染视角对应的目标时刻。",
+      rendering: "目标时刻从当前视角渲染出的图像。",
+      gt: "与当前渲染视角配对的参考图像。",
+    }],
     [230, 282, {
       metrics: "本次渲染和评估得到的指标，来自 render_set 的返回值。",
     }],
   ],
   "metrics.py": [
     [92, 94, {
+      mae: "由每张图像的 PSNR 换算回线性尺度得到的均方误差。",
       psnrs: "各张图像的 PSNR 数值，这里将它们转换为线性误差，再计算汇总指标。",
     }],
   ],
   "scene/dataset_readers.py": [
+    [61, 70, {
+      step: "相邻两个抽样位置在原列表中的间隔。",
+      indices: "要从原列表保留的元素索引。",
+    }],
+    [72, 88, {
+      P: "相机投影矩阵，包含内参和位姿信息。",
+      lines: "相机参数文本中用于构造投影矩阵的数值记录。",
+      K: "由投影矩阵分解得到的相机内参矩阵。",
+      R: "由投影矩阵分解得到的相机旋转矩阵。",
+      t: "由投影矩阵分解得到的相机齐次位置向量。",
+    }],
+    [95, 116, {
+      diagonal: "相机中心距离平均位置的最大距离。",
+      radius: "包围相机中心的归一化半径，取最大相机偏移距离的 1.1 倍。",
+      translate: "把相机中心的平均位置移到原点的平移向量。",
+    }],
+    [119, 160, {
+      extr: "当前相机的 COLMAP 外参记录，包含旋转和平移。",
+      intr: "当前相机使用的 COLMAP 内参记录，包含图像尺寸和焦距参数。",
+    }],
+    [162, 172, {
+      vertices: "PLY 文件的顶点表，每条记录对应一个点。",
+      normals: "PLY 点云每个点的三维法向量。",
+    }],
+    [244, 294, {norm_data: "归一化到 0 到 1 的 RGBA 图像数组，用于透明度合成。"}],
+    [360, 415, {
+      P: "由世界矩阵和尺度矩阵组合得到的相机投影矩阵。",
+      a: "当前相机位姿矩阵的第一行。",
+      b: "当前相机位姿矩阵的第二行，用于转换坐标轴。",
+      c: "当前相机位姿矩阵的第三行，用于转换坐标轴。",
+    }],
+    [448, 515, {
+      name: "数据集所在上一级目录的名称，用来选择图像划分规则。",
+      all_img: "训练与验证部分合并后要读入的图像标识。",
+      all_id: "数据集记录的全部图像标识，供隔帧取样。",
+      position: "转换成相机外参形式后的平移向量。",
+    }],
+    [497, 515, {all_img: "按图像标识构造出来的待加载 PNG 路径列表。"}],
+    [523, 551, {
+      train_cam_infos: "按数据集划分得到的训练相机记录。",
+      test_cam_infos: "训练划分以外用作测试的相机记录。",
+      num_pts: "读取的初始点云中包含的点数。",
+    }],
+    [561, 608, {
+      H: "相机位姿文件中附带的原始图像高度。",
+      W: "相机位姿文件中附带的原始图像宽度。",
+      poses: "转换到当前读取器坐标约定的一组相机位姿。",
+    }],
     [37, 52, {depth: "相机记录中可选的像素深度数据。"}],
     [53, 744, {pcd: "场景的初始点云，包含点坐标和颜色等属性。"}],
     [208, 208, {
@@ -279,6 +426,8 @@ const scopedNames = {
     }],
   ],
   "scene/colmap_loader.py": [
+    [53, 67, {qvec: "由旋转矩阵求得的四元数，标量分量排在第一位。"}],
+    [190, 199, {current_char: "从 COLMAP 记录的图像名中刚读出的一个字节。"}],
     [87, 113, {
       xyzs: "从 COLMAP 点文件读取的三维坐标数组。",
       rgbs: "点云各点的 RGB 颜色数组。",
@@ -291,41 +440,244 @@ const scopedNames = {
       "self.net_lr_scheduler": "按训练迭代计算形变网络学习率的函数。",
       "self.OdeTransformer.encoder.cache_knn_idx": "编码器缓存的近邻索引，散度计算可复用这些索引。",
     }],
+    [76, 215, {
+      knn_idx: "每个采样组内的近邻高斯索引。",
+      patch_idx: "参与正则项计算的采样组索引表，每行包含中心及其近邻。",
+    }],
+    [175, 220, {
+      seed_idx: "每个采样组中心的高斯索引。",
+      nbr_idx: "每个采样组内除中心之外的近邻高斯索引。",
+      scale_j: "各近邻高斯在三个轴上的尺度。",
+    }],
   ],
   "scene/gaussian_model.py": [
-    [1, 95, {"self.optimizer": "基础高斯参数的优化器，用于更新位置、颜色、尺度等属性。"}],
+    [30, 510, {
+      "self.active_sh_degree": "渲染时目前启用的球谐阶数。",
+      "self.max_sh_degree": "模型支持的最大球谐阶数。",
+      "self._xyz": "基础高斯在参考场景中的可训练中心坐标。",
+      "self._opacity": "模型内部保存的原始不透明度参数。",
+      "self.og_number_points": "加载模型时记录的初始点云点数。",
+      "self._scaling": "模型内部保存的各高斯对数尺度。",
+      "self._rotation": "用于表示各高斯朝向的原始四元数参数。",
+      "self.xyz_gradient_accum": "各高斯在屏幕位置上累积的梯度幅度，用于增密判断。",
+      "self.xyz_gradient_accum_abs": "给每个高斯预留的绝对梯度累加缓冲区。",
+      "self.xyz_gradient_accum_abs_max": "给每个高斯预留的绝对梯度最大值缓冲区。",
+      "self.denom": "各高斯参与梯度统计的次数，用于计算平均梯度。",
+      "self.max_radii2D": "各高斯历次渲染中记录的最大屏幕投影半径。",
+    }],
+    [400, 456, {xyz_cam: "从世界坐标转换到当前相机坐标系后的高斯中心。"}],
+    [470, 475, {
+      w: "相乘所得四元数的标量分量。",
+      x: "相乘所得四元数的第一个向量分量。",
+      y: "相乘所得四元数的第二个向量分量。",
+      z: "相乘所得四元数的第三个向量分量。",
+    }],
+    [1, 95, {
+      "self.optimizer": "基础高斯参数的优化器，用于更新位置、颜色、尺度等属性。",
+      actual_covariance: "每个高斯在三维空间中的协方差矩阵。",
+      features_dc: "每个高斯与观察方向无关的零阶球谐颜色系数。",
+      features_rest: "每个高斯用于描述颜色随观察方向变化的高阶球谐系数。",
+      "self.scaling_activation": "把内部尺度参数转换为可用于渲染的正尺度的函数。",
+      "self.rotation_activation": "把内部旋转参数变成单位四元数的归一化函数。",
+      "self.hyper_activation": "把特征最后一维转换成总和为 1 的权重的函数。",
+      "self.scaling_inverse_activation": "把实际尺度转换回模型内部参数的函数。",
+      "self.covariance_activation": "根据高斯的尺度和旋转构造三维协方差的函数。",
+      "self.opacity_activation": "把内部不透明度参数转换为零到一之间的不透明度的函数。",
+      "self.inverse_opacity_activation": "把实际不透明度转换回模型内部参数的函数。",
+    }],
+  ],
+  "scene/cameras.py": [
+    [18, 94, {
+      "self.uid": "创建相机对象时为该视角分配的编号。",
+      "self.colmap_id": "输入相机记录原有的编号。",
+      "self.R": "相机外参中的旋转矩阵，用来描述相机朝向。",
+      "self.T": "相机外参中的平移向量，用于构造世界到相机的变换。",
+      "self.image_name": "该相机记录对应的图像名称。",
+      "self.depth": "该视角的逐像素深度图，可能为空。",
+      "self.gt_alpha_mask": "该视角参考图像自带的透明度掩码。",
+      "self.camera_center": "相机光心在世界坐标中的三维位置。",
+      "self.image_width": "这一相机视角的图像宽度，单位是像素。",
+      "self.image_height": "这一相机视角的图像高度，单位是像素。",
+      "self.FoVy": "相机在竖直方向的视场角。",
+      "self.FoVx": "相机在水平方向的视场角。",
+      "self.znear": "相机视锥近裁剪面对应的深度。",
+      "self.zfar": "相机视锥远裁剪面对应的深度。",
+      "self.full_proj_transform": "合并视图变换与投影的矩阵，将世界坐标映射到裁剪空间。",
+    }],
   ],
   "scene/neu3d.py": [
+    [55, 84, {poses_centered: "以平均相机位姿为参考重新表示的一组相机位姿。"}],
     [237, 255, {
       "self.white_bg": "数据集配置中的白色背景标记。",
       "self.ndc_ray": "数据集配置中的光线坐标标记，NDC 指归一化设备坐标。",
       "self.depth_data": "数据集配置中的深度数据标记。",
+    }],
+    [231, 243, {
+      "self.is_stack": "构造参数里用于表示是否采用堆叠数据形式的开关。",
+      "self.N_vis": "传入的可视化视角数量配置。",
+      "self.time_scale": "初始化时保存的时间缩放配置。",
+      "self.bd_factor": "初始化时保存的场景深度边界缩放因子。",
+      "self.eval_step": "初始化时传入的评估步距设置。",
+    }],
+    [260, 272, {
+      H: "相机元数据里记录的原始图像高度。",
+      W: "相机元数据里记录的原始图像宽度。",
+      focal: "相机的像素焦距，随后按图像缩放倍率换算。",
+    }],
+    [285, 299, {
+      H: "数据集加载图像时的高度。",
+      W: "数据集加载图像时的宽度。",
+      "self.poses": "训练摄像机的位姿列表，已排除评估相机。",
+      "self.poses_all": "读取出的全部摄像机位姿。",
+      "self.cam_number": "当前划分加载的摄像机数量。",
+      "self.time_number": "当前划分记录的时间采样数量。",
+    }],
+    [344, 366, {
+      R: "当前相机位姿的旋转部分。",
+      T: "把世界坐标转换到当前相机坐标时使用的平移向量。",
+      t: "视频帧按顺序归一化到零到一的时间。",
+      N_time: "读取到的有效视频帧数量。",
     }],
   ],
   "utils/camera_utils.py": [
     [1, 57, {
       WARNED: "布尔标记，记录是否已提示过大尺寸输入图像会被缩小。",
       loaded_mask: "相机图像的可选透明度掩码，从 RGBA 图像的第 4 个通道取得。",
+      global_down: "图像加载时根据原始和目标宽度计算的基础下采样倍率。",
     }],
     [52, 57, {
       "args.data_device": "配置中的相机数据设备。未开启按需上传时，将该设备传给 Camera。",
     }],
+    [70, 84, {pos: "相机光心在世界坐标中的三维位置，用于导出相机记录。"}],
   ],
   "utils/time_utils.py": [
+    [12, 52, {
+      embed: "把输入数据交给位置编码器处理的函数。",
+      "self.kwargs": "配置位置编码器用的选项字典。",
+      d: "一个输入点需要编码的分量数。",
+      freq_bands: "生成正弦和余弦编码时使用的一组频率倍率。",
+      "self.out_dim": "拼接各路编码以后得到的总特征数。",
+    }],
+    [58, 199, {
+      "self.D": "多层感知机的层数配置。",
+      "self.W": "多层感知机隐藏层的宽度。",
+      "self.hyper_ch": "输入运动编码的特征维数。",
+    }],
+    [64, 70, {"self.input_ch": "位置编码前的坐标分量数。"}],
+    [71, 115, {"self.input_ch": "拼接空间编码、时间编码和运动编码后的输入维数。"}],
     [110, 168, {gate: "可选的运动门控权重，用来缩放网络输出的形变。"}],
+    [125, 155, {
+      w: "六自由度形变的旋转分量，归一化后用于构造变换轴。",
+      v: "六自由度形变的平移分量，参与构造旋转和平移的联合变换。",
+    }],
+    [143, 171, {
+      d_xyz: "位置分支预测的高斯空间变换。",
+      scaling: "经门控调节后用于缩放高斯的预测尺度变化。",
+    }],
+  ],
+  "utils/pose_utils.py": [
+    [5, 22, {
+      trans_t: "按指定距离构造沿 Z 轴平移矩阵的函数。",
+      rot_phi: "按指定弧度构造绕 X 轴旋转矩阵的函数。",
+      rot_theta: "按指定弧度构造绕 Y 轴旋转矩阵的函数。",
+    }],
+    [24, 38, {tHetaf: "从旋转矩阵恢复旋转向量时使用的缩放系数。"}],
+    [67, 90, {
+      R: "生成漫游轨迹时作为参考的相机旋转矩阵。",
+      T: "从参考相机平移量构造出的列向量。",
+      x_trans: "漫游轨迹当前帧沿 X 轴的位移。",
+      y_trans: "漫游轨迹当前帧沿 Y 轴的位移。",
+      z_trans: "漫游轨迹当前帧沿 Z 轴的位移。",
+    }],
   ],
   "utils/general_utils.py": [
+    [62, 118, {delay_rate: "训练初段用于让学习率平缓升至目标倍率的系数。"}],
+    [137, 156, {q: "按长度归一化后的旋转四元数。"}],
+    [190, 207, {
+      old_f: "替换标准输出前保存的原始输出流。",
+      "self.silent": "控制标准输出包装器是否静默的开关。",
+    }],
     [195, 207, {
       F: "包装标准输出的类。它可以按配置抑制输出，也能在换行时附上时间。",
     }],
   ],
+  "utils/loss_utils.py": [
+    [58, 83, {ssim_map: "两张图在各位置的局部结构相似度。"}],
+    [89, 135, {
+      pc1_centered: "去掉质心位置后的第一组点云坐标，用于估计旋转。",
+      pc1_mean: "第一组点云的质心，用来恢复对齐变换的平移部分。",
+      t: "把第一组点云旋转后再移到第二组点云位置所需的平移。",
+    }],
+    [181, 188, {loss: "掩码各分量对熵损失的贡献，随后按维度汇总。"}],
+  ],
+  "utils/metrics.py": [
+    [58, 68, {min_val: "输入图像数值范围的下界，用来确定 SSIM 的动态范围。"}],
+    [80, 97, {ssim_map: "两张图在各位置的局部结构相似度。"}],
+  ],
+  "utils/graphics_utils.py": [
+    [43, 57, {cam_center: "应用场景平移和缩放后的相机光心坐标。"}],
+  ],
+  "scripts/package_checkpoints.py": [
+    [140, 150, {manifest_path: "用于保存检查点打包清单的 JSON 文件路径。"}],
+  ],
   "scene/network.py": [
+    [13, 124, {
+      B: "点云批次中包含的样本数。",
+      N: "每个点云中可供采样的点数。",
+      centers: "从原始点云抽取的分组中心坐标。",
+      disp_norms: "每个高斯的位移幅度，用来判断运动强弱。",
+    }],
+    [103, 118, {score: "最远点采样对每个候选点给出的分数，由空间距离和运动权重共同决定。"}],
+    [125, 160, {N: "每个点云中用来查询近邻的原始点数。"}],
+    [220, 258, {group_features_global_max: "每个分组中各特征通道的最大值，用来给组内点补充分组信息。"}],
+    [278, 288, {
+      F: "每个输入点的特征维数。",
+      q: "注意力的查询向量，用来与其他点的键比较。",
+      k: "注意力的键向量，用来与查询计算匹配分数。",
+      v: "注意力按权重加总的值向量。",
+    }],
+    [283, 283, {attn: "各查询和各键之间的匹配分数。"}],
+    [284, 286, {attn: "用来加总各值向量的注意力权重。"}],
+    [464, 521, {
+      l: "编码器生成的逐高斯局部特征。",
+      knn_idx: "采样中心周围近邻点的索引，可供后续读取特征或计算散度。",
+      neighbors: "按采样中心组织的近邻特征。",
+      encoded_features: "按分组聚合后的特征，供注意力模块继续压缩。",
+      g0: "用来开始时间积分的场景共享初始状态。",
+    }],
+    [558, 567, {
+      t_tensor: "供动力学网络读取的当前时刻张量。",
+      h: "状态向量和时间组成的动力学网络输入。",
+      h1: "第一组网络计算出的中间特征。",
+      dzdt: "共享状态在当前时刻的变化率。",
+    }],
+    [633, 664, {
+      g_t: "积分得到的共享状态，供指定时刻的解码使用。",
+      z_t: "把目标时刻的共享状态和逐高斯局部特征合在一起得到的特征。",
+      l: "每个高斯的局部特征，供解码器恢复逐高斯形变。",
+      g0: "编码器给出的共享初始状态。",
+    }],
+    [643, 644, {g_t: "沿时间网格计算出的一系列共享状态，每个时间点对应一项。"}],
     [164, 211, {
+      "self.motion_kwargs": "控制运动感知分组的配置字典。",
+      disp_norms: "每个高斯的位移幅度，用来判断运动强弱。",
       "self.vis": "最远点采样的记录开关，用来收集采样结果供可视化。",
       "self.last_centers": "最近一次采样选出的分组中心坐标。",
       "self.last_high_idx": "最近一次记录的高运动点索引。",
     }],
     [322, 365, {"self.queries": "可训练的注意力查询向量，用于从输入特征聚合信息。"}],
+    [345, 359, {H: "每个输入点的隐藏特征维数。"}],
+    [598, 604, {
+      v: "解码器预测的逐高斯平移分量。",
+      w: "解码器预测的逐高斯旋转轴角向量。",
+      r: "解码器预测的逐高斯旋转四元数。",
+      s: "解码器预测的逐高斯三轴尺度变化。",
+    }],
+    [619, 643, {"self.odeint": "根据动力学网络给出的变化率推进共享状态的 ODE 积分函数。"}],
+    [622, 631, {
+      g0: "编码得到的场景共享初始状态，用作积分的起点。",
+      l: "编码得到的逐高斯局部特征，后续用于解码形变。",
+    }],
     [410, 521, {
       "self.cache": "编码器缓存的近邻特征，后续可复用以减少分组计算。",
       "self.cache_knn_idx": "编码器缓存的近邻索引，散度正则可以复用。",
@@ -340,6 +692,25 @@ const scopedNames = {
     }],
     [633, 644, timeGridNames],
     [608, 631, {"self.cache": "推理阶段的编码缓存，保存逐高斯局部特征 l 和共享初始状态 g0。"}],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/diff_gaussian_rasterization/__init__.py": [
+    [94, 179, {
+      raster_settings: "光栅化所需的相机参数、图像尺寸、背景等配置。",
+      "ctx.raster_settings": "为反向传播保留的光栅化配置。",
+      "self.raster_settings": "当前光栅化器保存的渲染配置。",
+      num_rendered: "前向光栅化生成的高斯与图块相交记录数。",
+      "ctx.num_rendered": "为反向传播保留的高斯与图块相交记录数。",
+      colors_precomp: "预先计算好的各高斯 RGB 颜色。",
+      means3D: "各高斯在三维空间中的中心坐标。",
+      scales: "各高斯沿三个轴的尺度。",
+      rotations: "各高斯的旋转四元数。",
+      cov3Ds_precomp: "预先计算好的三维协方差。",
+      radii: "各高斯投影到图像上的半径。",
+      sh: "描述各高斯颜色随视角变化的球谐系数。",
+      geomBuffer: "前向光栅化保存的高斯几何数据缓冲区。",
+      binningBuffer: "保存高斯分配到图块及其排序信息的缓冲区。",
+      imgBuffer: "保存像素合成过程信息的缓冲区，供反向传播读取。",
+    }],
   ],
   "submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/forward.cu": [
     [296, 380, {
@@ -356,7 +727,10 @@ const scopedNames = {
     }],
   ],
   "scene/__init__.py": [
-    [39, 133, {"self.loaded_iter": "已选中的检查点迭代编号，供加载对应的高斯状态。"}],
+    [39, 133, {
+      "self.loaded_iter": "已选中的检查点迭代编号，供加载对应的高斯状态。",
+      "self.gaussians": "场景关联的高斯模型，保存可训练的几何和颜色参数。",
+    }],
     [59, 89, {
       sceneLoadTypeCallbacks: "按数据集类型找到对应读取函数的字典。例如 Colmap 对应 COLMAP 场景读取器。",
       "args.source_path": "传给读取器的数据目录。",
@@ -418,17 +792,7 @@ let proseTypes;
 
 function vagueNameMeaning(value) {
   const text = typeof value === "string" ? value : value?.description || "";
-  return /^(?:代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存对应语句算出的值|把[^。]+保存到[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
-}
-
-function sourceContextMeaning(value) {
-  const assignment = value.match(/^保存右侧([^，]+)，来源是 (.+)。$/);
-  if (!assignment) return value;
-  const [, kind, source] = assignment;
-  if (kind === "布尔值") return "布尔标记，可作为条件参与分支判断。";
-  if (source === "None") return "可选值，未提供时用 None 表示。";
-  if (kind === "值") return "由 " + source + " 提供的值。";
-  return kind + "，由 " + source + " 提供。";
+  return /^(?:代码在这里引用|成员访问 .+，从 |调用这里链接|从 .+ 导入的名称|导入的模块 .+，用来访问|这里调用 .+，将括号|这个函数接收的参数，由调用者|(?:对象的一个属性|本文件在这里定义的[函数类])|保存(?:右侧|表达式|对应语句算出的)|由 .+ 提供的值|.+，由 .+ 提供。$|写入值的|把[^。]+(?:保存到|赋给)[^。]+。?$|指定同名选项|作为第.*实参传入|候选值|执行.*调用|结果由该函数)/.test(text);
 }
 
 function shortMeaning(value) {
@@ -449,6 +813,7 @@ function collectNameMeanings(file, first, last) {
   const names = new Map(path.endsWith(".py") ? [...Object.entries(moduleNames), ...Object.entries(knownNames)]
     : /\.(?:c|cc|cpp|cu|cuh|h|hpp|inl)$/.test(path) ? Object.entries(nativeTypes) : []);
   const local = new Map();
+  const variableNames = new Set();
   const ambiguous = new Set();
   const entries = expressionIndex.files[path] || {};
   const scope = file.symbols?.findLast(([from, to, , kind]) => kind === "函数" && from <= first && first <= to);
@@ -479,11 +844,7 @@ function collectNameMeanings(file, first, last) {
       const meaning = argumentMeaning(label, info, fallback, written);
       remember(info?.name, meaning);
       if (info?.value && info.value !== info.name && simpleName.test(info.value)) {
-        const description = shortMeaning(meaning);
-        if (description) {
-          const bind = info.name ? "传给 " + info.name + "。" : "";
-          remember(info.value, bind + description);
-        }
+        remember(info.value, meaning);
       }
       children.forEach(child => readNode(child));
     }
@@ -533,12 +894,12 @@ function collectNameMeanings(file, first, last) {
   for (const [name, detail] of local) if (!names.has(name)) names.set(name, detail);
   if (path.endsWith(".py")) {
     for (const [type, meaning] of projectTypeNames()) if (!names.has(type)) names.set(type, meaning);
-    addLocalBindings(file, lines, names, first, last);
+    addLocalBindings(file, lines, names, variableNames, first, last);
     addImportedModuleNames(file, lines, names, first, last);
   }
   for (let line = first; line <= last; line++) {
     for (const [name, id] of Object.entries(nameContextIndex.files[path]?.[line] || {})) {
-      const detail = sourceContextMeaning(nameContextIndex.meanings[id]);
+      const detail = nameContextIndex.meanings[id];
       const current = names.get(name);
       if (!current || vagueNameMeaning(current)) {
         names.set(name, current?.source ? {description: detail, source: current.source} : detail);
@@ -560,6 +921,16 @@ function collectNameMeanings(file, first, last) {
           source: path ? path + " · 第 " + definitionLine + " 行" : "",
         });
       }
+    }
+  }
+  for (const name of variableNames) {
+    const current = names.get(name);
+    if (!current) continue;
+    const description = typeof current === "string" ? current : current.description;
+    const sentence = description?.match(/[^。！？；]+[。！？；]?/)?.[0];
+    if (sentence) {
+      const concise = sentence.replace(/[。！？；]$/, "") + "。";
+      names.set(name, typeof current === "string" ? concise : {...current, description: concise});
     }
   }
   return names;
@@ -637,7 +1008,7 @@ function addImportedModuleNames(file, lines, names, first, last) {
   }
 }
 
-function addLocalBindings(file, lines, names, first, last) {
+function addLocalBindings(file, lines, names, variableNames, first, last) {
   const visible = lines.slice(first - 1, last).join(" ").matchAll(codeNames);
   const symbols = new Set();
   for (const [token] of visible) {
@@ -658,6 +1029,7 @@ function addLocalBindings(file, lines, names, first, last) {
     bindings.sort(([a, aFrom], [b, bFrom]) => (b <= last) - (a <= last) || bFrom - aFrom || b - a);
     if (!bindings.length) continue;
     const [at, from, , role, origin] = bindings[0];
+    if (role === "assignment" || role === "attribute" || role === "unpack") variableNames.add(name);
     if (role === "module" || role === "import") {
       const detail = importMeaning(origin, file.path);
       if (detail) names.set(name, detail);
@@ -673,19 +1045,19 @@ function addLocalBindings(file, lines, names, first, last) {
     const records = expressionIndex.files[file.path] || {};
     const row = records[at];
     let description = "";
-    if (role === "assignment" || role === "attribute") {
+    if (variableNames.has(name)) {
       const contextId = nameContextIndex.files[file.path]?.[at]?.[name];
       description = shortMeaning(row?.outer && row.nodes[0].result)
         || shortMeaning(projectManual[file.path]?.[at]?.result)
-        || (contextId !== undefined ? sourceContextMeaning(nameContextIndex.meanings[contextId]) : "");
+        || (contextId !== undefined ? nameContextIndex.meanings[contextId] : "");
     } else if (role === "function" || role === "class") {
       description = shortMeaning(row?.definition?.purpose);
     }
     const roles = {
       parameter: "这个函数接收的参数，由调用者传入。",
-      assignment: from ? "保存对应语句算出的值，供当前作用域使用。" : "文件级变量，保存对应语句算出的值。",
-      attribute: "对象的一个属性，保存该对象后续操作会使用的值。",
-      unpack: "接收右侧解包后对应位置的一个值。",
+      assignment: from ? "当前函数使用的局部数据。" : "可由当前文件中的函数使用的模块级变量。",
+      attribute: "随对象实例保存的数据。",
+      unpack: "从一组结果中取出的独立分量。",
       iteration: "保存本轮循环取到的值或其中的一项。",
       exception: "保存这一分支捕获到的异常对象。",
       resource: "接收进入当前资源管理块时得到的对象。",
@@ -716,8 +1088,6 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
   const member = qualified.slice(0, -token.length).replace(/(?:\.|::|->)$/, "");
   if (index < count - 1) return "当前访问的限定名。后面的成员通过 " + qualified + " 查找。";
   if (language === "py" && /\bfrom\s+[^\s]*$/.test(head)) return "导入来源所在的模块，用来查找 import 后列出的成员。";
-  const assignment = tail.match(/^\s*=(?!=)\s*([^;\n]+)/);
-  if (assignment) return "写入值的" + (index ? "成员" : "变量") + "。这里保存 " + compact(assignment[1]) + " 的结果。";
   const indexing = tail.match(/^\s*\[([^\]]{1,65})\]/);
   if (indexing) return "被索引的对象，用 " + compact(indexing[1]) + " 选出其中一项或一段。";
   const call = tail.match(/^\s*\(([^()]{0,70})\)/);

@@ -14,6 +14,7 @@
   <nav id="examples" class="examples" aria-label="方法导航"></nav>
   <div class="mast-actions">
     <button id="open-visualizations" class="utility visualization-launch" type="button" aria-haspopup="dialog" aria-controls="visualization-index">可视化</button>
+    <button id="swap-panes" class="utility pane-order" type="button" aria-controls="lesson-pane source-pane" aria-pressed="false">交换栏位</button>
     <button id="toggle" class="utility" aria-controls="sidebar" aria-expanded="true">收起文件</button>
   </div>
 </header>
@@ -37,7 +38,7 @@
     <div id="reader-splitter" class="reader-splitter" role="separator" aria-label="讲解区宽度"
       aria-controls="lesson-pane" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75"
       aria-valuenow="44" tabindex="0" title="左右拖动调整宽度，双击恢复默认"></div>
-    <section class="source" aria-label="源代码">
+    <section id="source-pane" class="source" aria-label="源代码">
       <div class="sourcebar">
         <div><strong id="path"></strong><div id="status"></div></div>
         <form id="jump">
