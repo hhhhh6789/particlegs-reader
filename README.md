@@ -1,5 +1,7 @@
 # ParticleGS 源码阅读器
 
+**在线阅读器** · [https://hhhhh6789.github.io/particlegs-reader/](https://hhhhh6789.github.io/particlegs-reader/)
+
 用于非商业学习和研究的中文交互阅读器，内含源码浏览、代码讲解、术语悬停及可点击的 SVG 图示。论文作者、官方仓库、源码提交和许可证见[源码署名与许可](credits.html)。
 
 ## 本地预览
