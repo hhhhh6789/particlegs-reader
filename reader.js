@@ -6,7 +6,9 @@ const element = (id) => document.getElementById(id);
 const byPath = new Map(files.map(file => [file.path, file]));
 const code = element("code");
 const reading = element("reading");
+const sourceScopeRange = element("source-scope-range");
 let activeFile, activeLine, rows = [], highlighted = [], statementEnds = new Map();
+let sourceScopes = [], sourceScopeSegments = [], currentSourceScope = null;
 
 function add(parent, tag, text, className) {
   const node = document.createElement(tag);
@@ -351,6 +353,70 @@ function jumpToSource(path, line) {
   }
 }
 
+function sourceIndent(text) {
+  if (!text.trim()) return Infinity;
+  let column = 0;
+  for (const char of text) {
+    if (char === " ") column++;
+    else if (char === "\t") column += 4 - (column % 4);
+    else break;
+  }
+  return column;
+}
+
+function layoutSourceScopes() {
+  if (!sourceScopeSegments.length) return;
+  const origin = code.getBoundingClientRect().top + code.clientTop - code.scrollTop;
+  const positions = sourceScopeSegments.map(({first, last, element}) => {
+    const top = rows[first - 1].getBoundingClientRect().top;
+    const end = rows[last - 1].getBoundingClientRect();
+    return [element, top - origin, end.top + end.height / 2 - top];
+  });
+  for (const [element, top, height] of positions) {
+    element.style.top = top + "px";
+    element.style.height = height + "px";
+  }
+}
+
+function mountSourceScopes(sourceLines) {
+  const definitions = blockIndex().scopeGuides || [];
+  if (!definitions.length) return;
+  const layer = add(code, "div", null, "source-scope-guides");
+  layer.setAttribute("aria-hidden", "true");
+  const indents = sourceLines.map(sourceIndent);
+  for (const [header, first, last, column] of definitions) {
+    if (!(1 <= header && header < first && first <= last && last <= rows.length)) continue;
+    const guideColumn = Math.min(column + 1.65, indents[first - 1] - .35);
+    const scope = {header, last, segments: []};
+    // A continuation or preprocessor directive can extend left of the scope's indentation.
+    let start = first;
+    for (let line = first; line <= last + 1; line++) {
+      if (line <= last && indents[line - 1] > guideColumn) continue;
+      if (line > start) {
+        const element = add(layer, "span", null, "source-scope-guide");
+        element.style.setProperty("--scope-column", String(guideColumn));
+        scope.segments.push(element);
+        sourceScopeSegments.push({first: start, last: line - 1, element});
+      }
+      start = line + 1;
+    }
+    if (scope.segments.length) sourceScopes.push(scope);
+  }
+  layoutSourceScopes();
+}
+
+function selectSourceScope() {
+  const scope = sourceScopes.findLast(({header, last}) => header <= activeLine && activeLine <= last) || null;
+  if (scope === currentSourceScope) return;
+  currentSourceScope?.segments.forEach(guide => guide.classList.remove("current-scope"));
+  scope?.segments.forEach(guide => guide.classList.add("current-scope"));
+  if (sourceScopeRange) {
+    sourceScopeRange.hidden = !scope;
+    sourceScopeRange.textContent = scope ? "当前块 · 第 " + lineRange(scope.header, scope.last) + " 行" : "";
+  }
+  currentSourceScope = scope;
+}
+
 function selectLine(line, scroll) {
   if (!rows.length) return;
   const current = rows[Math.min(rows.length, Math.max(1, Math.trunc(line))) - 1];
@@ -366,6 +432,7 @@ function selectLine(line, scroll) {
     highlighted.push(rows[i - 1]);
   }
   current.classList.add("current");
+  selectSourceScope();
   if (scroll) code.scrollTop += current.getBoundingClientRect().top - code.getBoundingClientRect().top - code.clientHeight * 0.27;
   element("line").value = activeLine;
   showExplanation();
@@ -398,6 +465,10 @@ function loadFile(path, line = 1) {
   activeFile = byPath.get(path);
   statementEnds = new Map(activeFile.statements || []);
   rows = []; highlighted = [];
+  sourceScopes = [];
+  sourceScopeSegments = [];
+  currentSourceScope = null;
+  if (sourceScopeRange) sourceScopeRange.hidden = true;
   code.replaceChildren();
   code.scrollTop = 0;
   code.scrollLeft = 0;
@@ -436,6 +507,7 @@ function loadFile(path, line = 1) {
     return row;
   });
   code.append(fragment);
+  mountSourceScopes(sourceLines);
   selectLine(line, true);
 }
 
@@ -655,6 +727,7 @@ code.onkeydown = event => {
 filterFiles();
 initializePaneSplitter();
 initializeVisualizations();
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(layoutSourceScopes).observe(code);
 element("examples").querySelector("button").click();
 
 
