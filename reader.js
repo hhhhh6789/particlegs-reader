@@ -280,8 +280,7 @@ function showExplanationSections(item, parts) {
 function lineRange(first, last) { return first === last ? String(first) : first + "–" + last; }
 
 function showLineGroup(group) {
-  const [first, , title, items] = group;
-  if (items.length > 1) add(reading, "p", title, "line-group-caption");
+  const [first, , , items] = group;
   const list = add(reading, "div", null, "line-notes");
   for (const [line, , body, parameters, call] of items) {
     const last = statementEnds.get(line) || line;
@@ -330,6 +329,7 @@ function showExplanation() {
   }
   showOdeChapterHeader();
   const group = lineGroup(activeFile.path, activeLine);
+  showReadingCaption(group);
   if (group) showLineGroup(group);
   else showProjectExplanation();
   appendDecoderDiagram(activeFile.path, activeLine);
@@ -423,8 +423,11 @@ function moveToSource(path, line) {
   const heading = reading.querySelector(".active-note .line-note-header");
   if (!heading) return;
   const viewport = reading.getBoundingClientRect();
-  const rowTop = heading.getBoundingClientRect().top;
-  reading.scrollTop += rowTop - viewport.top - 18;
+  const row = heading.getBoundingClientRect();
+  const caption = reading.querySelector(".line-group-caption")?.getBoundingClientRect();
+  if (!caption || caption.top < viewport.top || row.bottom > viewport.bottom) {
+    reading.scrollTop += row.top - viewport.top - 18;
+  }
   const position = heading.getBoundingClientRect();
   if (position.top < 0 || position.bottom > window.innerHeight) {
     heading.scrollIntoView({block: "center", inline: "nearest"});

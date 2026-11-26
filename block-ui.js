@@ -9,13 +9,6 @@ const clauseKinds = new Set([...conditionKinds, "else", "try", "finally", "case"
 const smallBlockLimit = 24;
 const auditedSpans = new WeakMap();
 
-function blockCaption(group) {
-  const [start, end, kind, title] = group;
-  const explicit = activeFile.path === "scene/__init__.py" && start === 47;
-  return (explicit ? "选择要加载的迭代" : kind) + " · 第 " + lineRange(start, end) + " 行"
-    + (explicit || executiveKinds.has(kind) ? "" : " · " + title);
-}
-
 function statementRange(line) {
   const path = activeFile.path;
   if (!path.endsWith(".py") && Array.isArray(projectManual[path]?.[line])) return [line, line];
@@ -50,6 +43,71 @@ function blockIndex() {
 
 function compareBlocks(a,b) {
   return (a[1] - a[0]) - (b[1] - b[0]) || b[0] - a[0];
+}
+
+function titleFragment(text, length = 48) {
+  const compact = text.replace(/[\s`]+/g, " ").trim();
+  return compact.length > length ? compact.slice(0, length - 1).trimEnd() + "…" : compact;
+}
+
+function statementCaption(path, first) {
+  const text = activeFile.text.split("\n", first)[first - 1].trim();
+  const suffix = path.split(".").at(-1).toLowerCase();
+  const filename = path.split("/").at(-1);
+  const imported = text.match(/^(?:from\s+([.\w]+)\s+import\b|import\s+([\w.]+)|(?:#\s*include|source)\s+["'<]([^"'>]+)["'>])/);
+  if (imported) return "引入 " + titleFragment(imported[1] || imported[2] || imported[3]);
+  if (!text) return "段落分隔";
+  if (/^(?:#(?!\s*(?:include|define))|\/\/|\/\*|<!--)/.test(text)) return "代码说明";
+  if (["html", "htm"].includes(suffix)) {
+    const tag = text.match(/^<\/?([\w-]+)/)?.[1];
+    return tag ? "组织页面中的 " + tag + " 元素" : "组织页面内容";
+  }
+  if (suffix === "css") {
+    const rule = text.match(/^([^{}]+)\s*\{/);
+    if (rule) return "设置 " + titleFragment(rule[1]) + " 的显示样式";
+    const key = text.match(/^([\w-]+)\s*:/)?.[1];
+    return key ? "设置 " + key + " 样式" : "样式规则";
+  }
+  if (/^(?:CMakeLists\.txt|.*\.cmake(?:\.in)?)$/.test(filename)) {
+    const directive = text.match(/^([\w]+)\s*\(/)?.[1];
+    return directive ? "执行构建配置 " + directive : "构建配置";
+  }
+  if (["txt", "md", "dat"].includes(suffix) || /^(?:LICENSE|COPYING|Makefile)$/.test(filename)) {
+    return "查看 " + filename + " 的内容";
+  }
+  const setting = text.match(/^([\w.]+)\s*:(?!:)\s*(?=.)/);
+  if (["yaml", "yml", "json"].includes(suffix) && setting) return "配置 " + setting[1];
+  const definition = text.match(/^(?:async )?(?:def|class|function)\s+([\w$]+)/);
+  if (definition) return "定义 " + definition[1];
+  const returned = text.match(/^return(?:\s+(.+))?\s*;?$/);
+  if (returned) return returned[1] ? "返回 " + titleFragment(returned[1].replace(/;$/, "")) : "结束当前函数";
+  const assignment = text.match(/^(.*?)\s*=(?!=)(?!>)/);
+  if (assignment && /^[\w.:[\], *&]+$/.test(assignment[1])) return "设置 " + titleFragment(assignment[1]);
+  const call = text.match(/^([\w.$:]+)\s*\(/);
+  if (call) return "调用 " + call[1];
+  return "查看 " + filename + " 中的当前语句";
+}
+
+function showReadingCaption(lesson) {
+  const {path} = activeFile;
+  const index = blockIndex();
+  const contains = ([first, last]) => first <= activeLine && activeLine <= last;
+  const reviewed = index.readingRanges?.filter(contains).sort(compareBlocks)[0];
+  const documented = index.documentRanges?.find(contains);
+  const context = projectGuide.contexts[path]?.filter(contains).sort(compareBlocks)[0];
+  const structure = index.groups?.filter(group => group[5] && contains(group)).sort(compareBlocks)[0];
+  const fileTopic = explanation(path, activeLine);
+  let range = reviewed || lesson || context || documented
+    || (structure && [structure[0], structure[1], structure[5]])
+    || fileTopic;
+  if (!range) {
+    const [first, last] = statementRange(activeLine);
+    range = [first, last, statementCaption(path, first)];
+  }
+  const [start, end, title] = range;
+  const caption = add(reading, "p", title + " · 第 " + lineRange(start, end) + " 行", "line-group-caption");
+  caption.dataset.sourceFirst = String(start);
+  caption.dataset.sourceLast = String(end);
 }
 
 function blockPlan() {
@@ -149,8 +207,6 @@ function showGroupedProjectExplanation() {
   const {groups, panel, outline} = blockPlan();
   if (outline) showBlockOutline(outline, groups);
   if (!panel) return false;
-  const context = projectGuide.contexts[activeFile.path]?.find(([start, end]) => start <= activeLine && activeLine <= end);
-  add(reading, "p", (context ? context[2] + " · " : "") + blockCaption(panel), "line-group-caption");
   const list = add(reading, "div", null, "line-notes");
   for (const [first, last] of collectBlockStatements(panel)) {
     const isActive = first <= activeLine && activeLine <= last;

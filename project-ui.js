@@ -417,12 +417,7 @@ function appendRenderDiagram(path, line) {
 
 function showProjectExplanation() {
   if (showGroupedProjectExplanation()) return;
-  const {path} = activeFile;
   const [first, last] = statementRange(activeLine);
-  const context = projectGuide.contexts[path]?.find(([from, to]) => from <= activeLine && activeLine <= to);
-  const block = explanation(path, activeLine);
-  const groupInfo = context?.[2] || block?.[2];
-  if (groupInfo) add(reading, "p", groupInfo, "line-group-caption");
   const list = add(reading, "div", null, "line-notes");
   renderProjectStatement(list, first, last, activeLine, true);
 }
