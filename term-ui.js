@@ -350,6 +350,10 @@ const scopedNames = {
       valid: "逐高斯的布尔掩码，表示各高斯是否通过相机深度筛选。",
       shs_view: "按高斯、RGB 通道、球谐系数三个轴排列的颜色张量。",
       dir_pp: "从相机中心分别指向各高斯基础中心的向量。",
+      dir_pp_normalized: "从相机中心指向各高斯基础中心的单位向量，用于求球谐颜色。",
+      sh2rgb: "沿各高斯当前观察方向求得的球谐颜色值。",
+      tanfovx: "水平半视场角的正切，表示视野半宽与深度的比例。",
+      tanfovy: "垂直半视场角的正切，表示视野半高与深度的比例。",
       screenspace_points: "承接高斯屏幕投影位置梯度的张量，用于训练时决定在哪里增密。",
       means2D: "传给光栅化器的屏幕空间梯度占位张量。",
       opacity: "各高斯的不透明度，用于计算它们对像素颜色的贡献。",
@@ -388,6 +392,8 @@ const scopedNames = {
       metric_ssim: "比较两张图像在结构上是否相似的指标对象。",
       metric_lpips: "比较两张图像在深度特征上是否接近的指标对象。",
       dxyz0: "所有高斯在初始时刻相对各自基准中心的位移。",
+      dxyz_t: "各高斯在当前采样时刻相对各自基准中心的位移。",
+      static_threshold: "判定高斯能否归入静态集合的最大位移阈值。",
       sampled_time: "用于检查高斯运动幅度的一组时刻。",
       static_mask: "标记采样期间运动幅度持续低于阈值的高斯。",
       motion_mask: "标记被归为运动部分的高斯。",
@@ -402,6 +408,11 @@ const scopedNames = {
     }],
   ],
   "metrics.py": [
+    [39, 42, {
+      image: "待缩小的批次图像张量，本函数取批次中的第一张。",
+      img: "第一张图像的 NumPy 数组，布局为高 × 宽 × 通道。",
+    }],
+    [119, 125, {lpips_fn: "根据 VGG 特征度量两张图像感知差异的 LPIPS 模型。"}],
     [87, 90, {
       lpipss: "保存逐张图所得 LPIPS 距离的列表。",
       lpips_fn: "计算两张图像感知差异的 LPIPS 指标模型。",
@@ -470,6 +481,9 @@ const scopedNames = {
     }],
   ],
   "scene/colmap_loader.py": [
+    [125, 146, {num_points: "COLMAP 二进制点云文件中的三维点总数。", track_length: "与当前三维点关联的图像观测数量。"}],
+    [182, 206, {num_reg_images: "COLMAP 成功求出位姿的图像记录数。", current_char: "当前图像文件名读到的一个字节。", num_points2D: "当前图像的二维观测点数。"}],
+    [217, 226, {num_cameras: "COLMAP 文件中保存的相机内参记录数。"}],
     [53, 67, {qvec: "由旋转矩阵求得的四元数，标量分量排在第一位。"}],
     [190, 199, {current_char: "从 COLMAP 记录的图像名中刚读出的一个字节。"}],
     [87, 113, {
@@ -493,6 +507,10 @@ const scopedNames = {
       knn_idx: "每个采样组内的近邻高斯索引。",
       patch_idx: "参与正则项计算的采样组索引表，每行包含中心及其近邻。",
     }],
+    [90, 94, {perm: "这次随机选中的邻域分组下标。"}],
+    [112, 117, {perm: "这次随机选作采样中心的高斯下标。"}],
+    [180, 184, {perm: "从缓存里随机选中的邻域分组下标。"}],
+    [187, 192, {perm: "这次随机选作采样中心的高斯下标。"}],
     [175, 220, {
       seed_idx: "每个采样组中心的高斯索引。",
       nbr_idx: "每个采样组内除中心之外的近邻高斯索引。",
@@ -525,6 +543,14 @@ const scopedNames = {
       opacities: "模型保存的未做 Sigmoid 转换的不透明度参数数组。",
       scale: "各高斯的三轴对数尺度参数数组。",
       rotation: "各高斯的未归一化旋转四元数参数数组。",
+    }],
+    [167, 180, {
+      f_dc: "每个高斯的零阶球谐颜色系数，一行对应一个高斯。",
+      f_rest: "每个高斯的其余球谐颜色系数，用来表达随观察方向变化的颜色。",
+    }],
+    [474, 499, {
+      f_dc: "写入 PLY 的逐高斯零阶球谐颜色系数。",
+      f_rest: "写入 PLY 的逐高斯高阶球谐颜色系数。",
     }],
     [338, 362, {
       n_init_points: "拆分操作开始前的高斯数量。",
@@ -620,13 +646,20 @@ const scopedNames = {
   "utils/camera_utils.py": [
     [1, 57, {
       WARNED: "布尔标记，记录是否已提示过大尺寸输入图像会被缩小。",
-      loaded_mask: "相机图像的可选透明度掩码，从 RGBA 图像的第 4 个通道取得。",
+      loaded_mask: "传给相机的可选透明度掩码，初始为 None，条件命中时才尝试取第 4 个通道。",
       global_down: "图像加载时根据原始和目标宽度计算的基础下采样倍率。",
     }],
     [52, 57, {
       "args.data_device": "配置中的相机数据设备。未开启按需上传时，将该设备传给 Camera。",
     }],
     [70, 84, {pos: "相机光心在世界坐标中的三维位置，用于导出相机记录。"}],
+  ],
+  "utils/sh_utils.py": [
+    [56, 111, {sh: "各颜色通道的球谐系数，系数轴排在最后。", deg: "这次求值累计到的最高球谐阶数。", dirs: "用于给球谐系数求值的单位观察方向。"}],
+    [118, 119, {sh: "要还原成 RGB 的零阶球谐颜色系数。"}],
+  ],
+  "utils/system_utils.py": [
+    [21, 25, {exc: "创建目录时捕获的操作系统异常。", EEXIST: "表示目标路径已存在的系统错误编号。"}],
   ],
   "utils/time_utils.py": [
     [12, 52, {
@@ -652,6 +685,25 @@ const scopedNames = {
       d_xyz: "位置分支预测的高斯空间变换。",
       scaling: "经门控调节后用于缩放高斯的预测尺度变化。",
     }],
+    [12, 22, {
+      embedder_obj: "保存频带和各路映射的位置编码器实例。",
+      eo: "编码函数创建时保存的位置编码器。",
+    }],
+    [38, 49, {
+      max_freq: "决定最高频带频率的 2 的指数。",
+      N_freqs: "位置编码配置使用的频带数量。",
+    }],
+    [104, 119, {
+      t: "各点形变预测对应的时刻。",
+      t_emb: "当前时刻的编码特征，在 Blender 路径中再投影到 30 维。",
+      x_emb: "将每个三维点展开到多个频带所得的位置特征。",
+      h: "主干逐点计算的特征，遇到跳连会临时拼接原始输入。",
+    }],
+    [125, 172, {
+      theta: "旋转分支预测向量的长度，在刚体变换分支作为旋转角。",
+      screw_axis: "包含三项旋转分量和三项平移分量的螺旋轴。",
+    }],
+    [203, 212, {motion_code: "编码网络给每个三维点生成的逐点运动特征。"}],
   ],
   "utils/pose_utils.py": [
     [5, 22, {
@@ -660,6 +712,19 @@ const scopedNames = {
       rot_theta: "按指定弧度构造绕 Y 轴旋转矩阵的函数。",
     }],
     [24, 38, {tHetaf: "从旋转矩阵恢复旋转向量时使用的缩放系数。"}],
+    [24, 37, {
+      trc: "输入旋转矩阵三个对角元素的和。",
+      trc2: "由旋转矩阵的迹得到的转角余弦。",
+      s: "旋转矩阵的三个反对称差值，缩放后得到旋转向量。",
+      tHeta: "从输入矩阵推得的转角，单位为弧度。",
+      omega: "以方向表示旋转轴、以长度表示转角的旋转向量。",
+    }],
+    [40, 56, {
+      theta: "旋转向量的长度，对应以弧度表示的转角。",
+      a: "Rodrigues 公式中与单位矩阵相乘的余弦系数。",
+      b: "Rodrigues 公式中与旋转向量外积相乘的系数。",
+      c: "Rodrigues 公式中与反对称矩阵相乘的系数。",
+    }],
     [67, 90, {
       R: "生成漫游轨迹时作为参考的相机旋转矩阵。",
       T: "从参考相机平移量构造出的列向量。",
@@ -670,7 +735,10 @@ const scopedNames = {
   ],
   "utils/general_utils.py": [
     [62, 118, {delay_rate: "训练初段用于让学习率平缓升至目标倍率的系数。"}],
+    [79, 81, {t: "指数学习率调度的插值进度，限制在 0 至 1。", log_lerp: "在对数空间插值并换回原尺度得到的基础学习率。"}],
+    [115, 117, {t: "线性调度的插值进度，限制在 0 至 1。", log_lerp: "端点线性插值得到的调度值。"}],
     [137, 156, {q: "按长度归一化后的旋转四元数。"}],
+    [173, 190, {two_s: "2 除以四元数长度平方，用于缩放旋转矩阵的各乘积项。", o: "已按矩阵元素顺序排好但尚未重排成 3 × 3 的张量。"}],
     [190, 207, {
       old_f: "替换标准输出前保存的原始输出流。",
       "self.silent": "控制标准输出包装器是否静默的开关。",
@@ -704,6 +772,13 @@ const scopedNames = {
   ],
   "utils/graphics_utils.py": [
     [43, 57, {cam_center: "应用场景平移和缩放后的相机光心坐标。"}],
+    [24, 31, {denom: "带小量保护的齐次末分量，用作普通坐标的除数。", points_hom: "每个点末尾补上 1 得到的四维齐次坐标。"}],
+    [56, 76, {
+      tanHalfFovX: "水平半视场角的正切，表示近面半宽与近裁剪距离的比例。",
+      tanHalfFovY: "垂直半视场角的正切，表示近面半高与近裁剪距离的比例。",
+      z_sign: "决定相机前向深度符号的系数，此处为 +1。",
+      P: "将相机坐标变换到裁剪空间的透视矩阵。",
+    }],
   ],
   "scripts/package_checkpoints.py": [
     [140, 150, {manifest_path: "用于保存检查点打包清单的 JSON 文件路径。"}],
@@ -716,6 +791,10 @@ const scopedNames = {
       disp_norms: "每个高斯的位移幅度，用来判断运动强弱。",
     }],
     [103, 118, {score: "最远点采样对每个候选点给出的分数，由空间距离和运动权重共同决定。"}],
+    [99, 103, {
+      w_min: "每个点云中最小的高斯位移幅度，是运动权重归一化的下界。",
+      w_max: "每个点云中最大的高斯位移幅度，是运动权重归一化的上界。",
+    }],
     [125, 160, {N: "每个点云中用来查询近邻的原始点数。"}],
     [220, 258, {group_features_global_max: "每个分组中各特征通道的最大值，用来给组内点补充分组信息。"}],
     [278, 288, {
@@ -733,6 +812,7 @@ const scopedNames = {
       encoded_features: "按分组聚合后的特征，供注意力模块继续压缩。",
       g0: "用来开始时间积分的场景共享初始状态。",
     }],
+    [508, 513, {active_indices: "掩码标出的有效高斯在原列表中的下标。"}],
     [558, 567, {
       t_tensor: "供动力学网络读取的当前时刻张量。",
       h: "状态向量和时间组成的动力学网络输入。",
@@ -787,6 +867,20 @@ const scopedNames = {
     [608, 631, {"self.cache": "推理阶段的编码缓存，保存逐高斯局部特征 l 和共享初始状态 g0。"}],
   ],
   "submodules/depth-diff-gaussian-rasterization/diff_gaussian_rasterization/__init__.py": [
+    [46, 98, {
+      color: "当前相机视角下合成的 RGB 图像张量。",
+      depth: "当前相机视角下按各高斯贡献合成的深度图张量。",
+      cpu_args: "在进入 CUDA 之前复制到 CPU 的调试快照数据。",
+    }],
+    [101, 155, {
+      grad_out_color: "损失相对于前向 RGB 图像的梯度，是 CUDA 反向的上游输入。",
+      grad_radii: "自动求导传给 backward 的屏幕半径梯度参数，这个实现没有读取它。",
+      grad_depth: "自动求导传给 backward 的深度图梯度参数，这个实现没有读取它。",
+      grad_means2D: "损失对屏幕空间下各高斯中心的梯度。",
+      grad_means3D: "损失对各高斯实际三维中心坐标的梯度。",
+      grads: "按 Python 前向输入顺序排列的梯度元组。",
+    }],
+    [176, 185, {visible: "每个候选高斯中心是否通过原生近端深度检测的布尔张量。"}],
     [94, 179, {
       raster_settings: "光栅化所需的相机参数、图像尺寸、背景等配置。",
       "ctx.raster_settings": "为反向传播保留的光栅化配置。",
@@ -805,7 +899,32 @@ const scopedNames = {
       imgBuffer: "保存像素合成过程信息的缓冲区，供反向传播读取。",
     }],
   ],
+  "submodules/depth-diff-gaussian-rasterization/CMakeLists.txt": [
+    [22, 36, {
+      CudaRasterizer: "包含前向光栅化与反向梯度计算的 CMake 库目标。",
+      CUDA_ARCHITECTURES: "为库指定需要编译支持的 CUDA 设备架构编号。",
+      CMAKE_CURRENT_SOURCE_DIR: "当前 CMakeLists.txt 所在的源码目录。",
+      CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: "CUDA 工具包头文件的搜索目录。",
+    }],
+  ],
+  "submodules/simple-knn/setup.py": [
+    [16, 30, {cxx_compiler_flags: "构建扩展时传给主机 C++ 编译器的选项，Windows 路径会增加一项警告开关。"}],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/backward.cu": [
+    [155, 202, {idx: "当前 GPU 线程负责处理二维协方差梯度的高斯下标。"}],
+    [366, 400, {idx: "当前 GPU 线程负责处理投影相关梯度的高斯下标。"}],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/rasterize_points.cu": [
+    [65, 71, {int_opts: "与高斯中心同设备的 32 位整数张量配置。", float_opts: "与高斯中心同设备的单精度浮点张量配置，供颜色和深度输出使用。"}],
+  ],
   "submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/forward.cu": [
+    [182, 242, {idx: "当前 GPU 线程负责投影预处理的高斯下标。"}],
+    [195, 241, {
+      p_hom: "当前高斯中心经过投影矩阵后的四维齐次坐标。",
+      p_w: "齐次坐标末分量带数值保护后的倒数，用于透视除法。",
+      p_proj: "当前高斯中心经过透视除法后的归一化设备坐标。",
+      point_image: "当前高斯中心在图像中的二维像素位置。",
+    }],
     [296, 380, {
       T: "当前像素的剩余透过率。每叠加一个高斯就乘上 1 − alpha，用它控制后面高斯还能贡献多少。",
       alpha: "当前高斯在这个像素处的不透明度，用来计算它贡献的颜色和深度。",
@@ -817,6 +936,191 @@ const scopedNames = {
       D: "这个像素的深度累加值，每个高斯的深度按 alpha 与剩余透过率 T 加权。",
       collected_id: "当前批加载到共享内存的高斯索引，用于找到每个高斯的颜色和深度。",
       last_contributor: "最后一个实际参与像素合成的高斯在遍历中的位置，写入输出供反向计算使用。",
+    }],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.cu": [
+    [60, 66, {idx: "当前 GPU 线程负责检查可见性的高斯下标。"}],
+    [80, 111, {idx: "当前 GPU 线程负责生成图块覆盖记录的高斯下标。"}],
+    [118, 140, {idx: "当前 GPU 线程检查的图块覆盖记录在排序列表中的下标。"}],
+    [275, 319, {
+      num_rendered: "高斯与图块的覆盖记录总数，一个高斯覆盖多个图块时会贡献多条记录。",
+      "geomState.tiles_touched": "每个高斯覆盖的图块数。",
+      "geomState.point_offsets": "逐高斯图块数的包含式前缀和，用来定位每个高斯的记录区间。",
+      "binningState.point_list_keys": "排序后的记录键，高位标明图块，低位标明深度。",
+      "binningState.point_list": "与排序后键一一对应的高斯下标。",
+      "imgState.ranges": "各图块在排序记录中的起始位置和结束边界。",
+    }],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/detail/func_geometric.inl": [
+    [10, 12, {v: "要求欧氏长度的输入向量。"}],
+    [84, 88, {v: "要缩放成单位长度的输入向量。"}],
+    [95, 99, {I: "判断法线朝向时用的入射方向。", N: "会按方向判断保留或反转的法线。", Nref: "用来判断入射方向朝向哪一侧的参考法线。"}],
+    [106, 121, {I: "光线到达表面前的入射方向。", N: "碰撞表面的单位法线。"}],
+    [115, 121, {
+      eta: "入射介质折射率与透射介质折射率的比值。",
+      dotValue: "入射方向沿单位法线的带符号分量。",
+      k: "折射公式中根号下的判别量，负值表示发生全反射。",
+      Result: "算出的折射方向，全反射时用零向量表示。",
+    }],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/ext/matrix_transform.inl": [
+    [10, 14, {m: "要附加平移的原变换矩阵。", v: "沿原变换输入空间三个轴的平移量。", Result: "原矩阵右乘平移矩阵后的复合变换。"}],
+    [18, 45, {
+      m: "要附加旋转的原变换矩阵。",
+      v: "指定旋转轴方向的向量。",
+      angle: "绕给定轴的旋转角，单位为弧度。",
+      c: "转角余弦，用于构造旋转部分。",
+      s: "转角正弦，用于形成带方向的交叉项。",
+      axis: "构造旋转矩阵用的单位旋转轴。",
+      temp: "单位旋转轴乘以一减余弦，供填入二次项。",
+      Rotate: "存放新旋转所需三个线性列的矩阵。",
+      Result: "原矩阵与新旋转合成后的矩阵。",
+    }],
+    [78, 95, {v: "X、Y、Z 三个轴各自的缩放倍率。", m: "要附加三轴缩放的原变换矩阵。"}],
+    [99, 149, {
+      p: "用于计算剪切矩阵末列平移量的参考位置。",
+      m: "传入并参与矩阵乘法的原变换。",
+      l_x: "其他两个轴对 X 分量的剪切系数。",
+      l_y: "其他两个轴对 Y 分量的剪切系数。",
+      l_z: "其他两个轴对 Z 分量的剪切系数。",
+      point_lambda: "每个输出轴的两个剪切系数之和，用于求末列修正量。",
+      Shear: "包含轴间剪切和末列平移修正的齐次矩阵。",
+    }],
+    [153, 196, {
+      eye: "构造视图矩阵时相机在世界空间中的位置。",
+      center: "相机在世界空间中要看向的目标点。",
+      up: "用来确定相机绕视线转动方向的参考向上向量。",
+      f: "从相机位置指向目标的单位方向。",
+      s: "由前向与参考向上计算出的相机侧向单位轴。",
+      u: "由前向和侧向重新构造的相机向上坐标轴。",
+      Result: "把世界坐标变换到当前相机坐标系的视图矩阵。",
+    }],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/detail/func_matrix.inl": [
+    [10, 15, {x: "逐元素相乘的第一个矩阵。", y: "与第一个矩阵形状相同的乘数矩阵。", i: "当前计算的矩阵列下标。"}],
+    [31, 36, {c: "外积矩阵各列共同使用的列向量。", r: "为外积矩阵各列提供倍率的行向量。", m: "由列向量和行向量形成的外积矩阵。"}],
+    [267, 284, {DetCof: "展开四阶行列式所需的第一列对应的四个带符号余子式。"}],
+    [305, 342, {OneOverDeterminant: "矩阵行列式的倒数，用来缩放伴随矩阵。", Inverse: "各项已乘行列式倒数的逆矩阵。"}],
+    [387, 403, {
+      SignA: "适用于第 1、3 列的交替余子式符号。",
+      SignB: "适用于第 2、4 列的交替余子式符号。",
+      Inverse: "代码暂存的伴随矩阵，除以行列式后才得到逆矩阵。",
+      Row0: "伴随矩阵的第一行，用于计算原矩阵行列式。",
+      Dot0: "原矩阵第一列与伴随矩阵第一行的逐项乘积。",
+      Dot1: "四项乘积之和，即原矩阵的行列式。",
+      OneOverDeterminant: "行列式的倒数，乘伴随矩阵得到逆矩阵。",
+    }],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/ext/matrix_clip_space.inl": [
+    [4, 553, {
+      zNear: "相机到近裁剪面的正距离。",
+      zFar: "相机到远裁剪面的正距离。",
+      nearVal: "视锥的近裁剪面距离。",
+      farVal: "视锥的远裁剪面距离。",
+      left: "投影区域在相机空间中的左边界。",
+      right: "投影区域在相机空间中的右边界。",
+      bottom: "投影区域在相机空间中的下边界。",
+      top: "投影区域在相机空间中的上边界。",
+      fovy: "相机垂直视场角，单位为弧度。",
+      aspect: "投影区域的宽度与高度之比。",
+      Result: "把相机空间坐标转换到裁剪空间的 4 × 4 投影矩阵。",
+    }],
+    [233, 294, {tanHalfFovy: "垂直半视场角的正切，等于近裁剪面半高除以近裁剪距离。"}],
+    [352, 429, {
+      fov: "构造透视矩阵时输入的弧度视场角。",
+      width: "构造透视矩阵使用的视口宽度。",
+      height: "构造透视矩阵使用的视口高度。",
+      h: "透视除法之前用于 Y 坐标的缩放系数。",
+      w: "按视口高宽比修正后的 X 缩放系数。",
+    }],
+    [486, 548, {range: "无限远投影视锥在近裁剪面上的半高。"}],
+    [533, 548, {ep: "把无限远的归一化深度置于 1 以下的偏移量。"}],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/ext/matrix_projection.inl": [
+    [4, 84, {
+      model: "投影之前从物体局部坐标到观察空间的变换。",
+      proj: "将观察空间变换到裁剪空间的投影矩阵。",
+      viewport: "窗口中的视口原点、宽度和高度，按 x、y、宽、高排列。",
+    }],
+    [4, 41, {obj: "要映射到窗口坐标的三维物体点。", tmp: "保存前向变换的中间坐标，依次成为裁剪、归一化和窗口坐标。"}],
+    [46, 84, {
+      win: "用于反投影的窗口 X、Y 坐标及 0…1 深度。",
+      Inverse: "逆转模型变换和透视投影的组合矩阵。",
+      tmp: "正在从当前视口还原成归一化设备坐标的中间向量。",
+      obj: "逆变换得到的物体坐标，除以齐次分量后取前三项。",
+    }],
+    [89, 104, {
+      center: "窗口坐标中的待选区域中心。",
+      delta: "待选区域在窗口坐标中的宽度和高度。",
+      viewport: "选区所在视口的原点、宽度和高度。",
+      Temp: "校正选区中心相对于视口中心的平移量。",
+      Result: "用来将选区重映射到整个视口的变换矩阵。",
+    }],
+  ],
+  "submodules/depth-diff-gaussian-rasterization/third_party/glm/glm/gtc/quaternion.inl": [
+    [10, 12, {x: "要换成俯仰、偏航和滚转角的旋转四元数。"}],
+    [16, 43, {q: "提供角度计算所需四个分量的旋转四元数。"}],
+    [16, 24, {x: "滚转角 atan2 计算的第二个分量。", y: "滚转角 atan2 计算的第一个分量。"}],
+    [28, 37, {x: "俯仰角 atan2 计算的第二个分量。", y: "俯仰角 atan2 计算的第一个分量。"}],
+    [47, 77, {q: "要转换成旋转矩阵的四元数。", Result: "根据四元数分量得到的 3 × 3 旋转矩阵。"}],
+    [81, 122, {
+      m: "要转换成四元数的 3 × 3 旋转矩阵。",
+      biggestIndex: "绝对值最大的四元数分量编号，按 w、x、y、z 排列。",
+      fourBiggestSquaredMinus1: "最大四元数分量平方的四倍减一，从矩阵对角项选出。",
+      biggestVal: "最大四元数分量的非负幅值。",
+      mult: "用矩阵元素的和或差求其余四元数分量所乘的系数。",
+    }],
+  ],
+  "submodules/simple-knn/spatial.cu": [
+    [16, 25, {
+      points: "传给 CUDA 近邻搜索的三维点坐标张量。",
+      P: "输入点云里的点数。",
+      float_opts: "与坐标同设备的单精度距离张量配置。",
+      means: "逐点保存三个最近邻的平均平方距离，顺序与输入一致。",
+    }],
+  ],
+  "submodules/simple-knn/simple_knn.cu": [
+    [45, 51, {x: "待展开比特的单轴量化坐标。"}],
+    [54, 60, {
+      coord: "要编码的点在三个轴上的位置。",
+      x: "展开比特后的 X 轴量化坐标。",
+      y: "展开比特后的 Y 轴量化坐标。",
+      z: "展开比特后的 Z 轴量化坐标。",
+    }],
+    [54, 69, {minn: "量化坐标时使用的三轴下界。", maxx: "量化坐标时使用的三轴上界。"}],
+    [63, 70, {idx: "当前线程要生成 Morton 编码的原始点下标。", codes: "与原始点一一对应的 Morton 编码数组。"}],
+    [78, 117, {
+      idx: "当前线程在 Morton 排序中的位置。",
+      indices: "从 Morton 排序位置映射到原始点下标的数组。",
+      boxes: "各组点的轴对齐包围盒数组。",
+      me: "当前线程持有的部分包围盒。",
+      other: "当前线程在本轮要合并的另一份部分包围盒。",
+      off: "每对待合并条目在共享数组之间的距离，每轮减半。",
+      redResult: "同线程块内交换部分包围盒的共享内存数组。",
+    }],
+    [119, 128, {diff: "查询点到包围盒各轴区间的最短偏差，落在区间内时为零。"}],
+    [132, 145, {
+      ref: "当前要寻找近邻的查询点。",
+      point: "本次要与查询点比较的候选点。",
+      knn: "从小到大保存 K 个最佳平方距离的数组。",
+      dist: "待插入的距离，插入后换成被挤出的旧距离继续比较。",
+    }],
+    [147, 182, {
+      idx: "查询点在 Morton 排序中的位置。",
+      best: "目前找到的三个最小平方距离，按从小到大排列。",
+      reject: "用 Morton 邻位估算出的第三近距离，用作搜索上界。",
+      box: "当前正在判断是否需要搜索的组的包围盒。",
+      dist: "当前查询点到这组包围盒的最小平方距离。",
+      dists: "按原始点下标保存平均近邻平方距离的数组。",
+    }],
+    [185, 220, {
+      meanDists: "按原始点顺序写入最近三个邻点的平均平方距离。",
+      temp_storage_bytes: "下一次 GPU 归约或排序所需的临时缓冲区大小。",
+      temp_storage: "给 CUB 归约和排序复用的 GPU 临时缓冲区。",
+      morton: "按原始点顺序存放的空间排序编码。",
+      morton_sorted: "按数值排序后的空间编码。",
+      indices_sorted: "随空间编码一起排序后得到的原始点下标。",
+      num_boxes: "按每组最多 BOX_SIZE 个点划分之后的分组数。",
     }],
   ],
   "scene/__init__.py": [
@@ -916,6 +1220,16 @@ function functionNameMeaning(path, line) {
   const description = expressionIndex.files[path]?.[line]?.definition?.hover;
   return description ? {description, source: path + " · 第 " + line + " 行"} : null;
 }
+
+const optionOwners = {
+  "train.py": {"self.opt": "OptimizationParams", opt: "OptimizationParams", "self.dataset": "ModelParams", dataset: "ModelParams",
+    "self.pipe": "PipelineParams", pipe: "PipelineParams"},
+  "scene/__init__.py": {args: "ModelParams"},
+  "scene/gaussian_model.py": {training_args: "OptimizationParams"},
+  "scene/deform_model.py": {training_args: "OptimizationParams"},
+  "render.py": {dataset: "ModelParams", pipeline: "PipelineParams"},
+  "gaussian_renderer/__init__.py": {pipe: "PipelineParams"},
+};
 
 function collectNameMeanings(file, first, last) {
   const {path} = file;
@@ -1044,6 +1358,11 @@ function collectNameMeanings(file, first, last) {
     }
   }
   for (const [name, meaning] of bindingMeanings) names.set(name, meaning);
+  for (const [owner, group] of Object.entries(optionOwners[path] || {})) {
+    for (const [field, meaning] of Object.entries(nameContextIndex.configurationFields?.[group] || {})) {
+      names.set(owner + "." + field, meaning);
+    }
+  }
   const gaussianOwners = {
     "train.py": ["scene.gaussians", "self.gaussians"],
     "render.py": ["gaussians"],
@@ -1275,13 +1594,12 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
   const compact = value => value.replace(/\s+/g, " ").trim().slice(0, 72);
   const head = before.slice(-160);
   const tail = rest.slice(0, 160);
-  if (index < count - 1) return "当前访问的限定名。后面的成员通过 " + qualified + " 查找。";
+  if (index < count - 1) return "";
   if (language === "py" && /\bfrom\s+[^\s]*$/.test(head)) return "导入来源所在的模块，用来查找 import 后列出的成员。";
   const indexing = tail.match(/^\s*\[([^\]]{1,65})\]/);
-  if (indexing) return "被索引的对象，用 " + compact(indexing[1]) + " 选出其中一项或一段。";
+  if (indexing) return "这个名称的具体含义待核实。";
   if (/^\s*\(/.test(tail)) return "这个调用的具体作用和返回值待核实。";
-  if (/\b(?:if|while|assert)\b/.test(head)) return "这个条件中的判断值，影响接下来是否执行对应代码。";
-  if (/\breturn\b/.test(head)) return "函数返回表达式中的值，供调用方使用。";
+  if (/\b(?:if|while|assert|return)\b/.test(head)) return "这个名称的具体含义待核实。";
   if (/\b(?:sizeof|decltype)\s*\([^)]*$/.test(head)) return "运算的输入，用来确定对象的大小或表达式的类型。";
   const macro = head.match(/^\s*#\s*(define|ifdef|ifndef|undef)\s*$/);
   if (macro) return "预处理宏。" + ({
@@ -1291,9 +1609,9 @@ function sourceNameRole(token, qualified, index, count, before, rest, language) 
     undef: "清除这个宏的定义，后面的代码不再展开它。",
   })[macro[1]];
   const rhs = head.match(/\b([\w.:[\]>-]+)\s*(?:[+*\/%&|^:-])?=(?!=)[^;=]*$/);
-  if (rhs) return "右侧表达式中的输入，参与计算写给 " + rhs[1] + " 的值。";
+  if (rhs) return "这个名称的具体含义待核实。";
   const argument = head.match(/([\w.:-]+)\s*\(([^()]*)$/);
-  if (argument) return "括号内的输入，用于 " + argument[1] + " 的调用或构造。";
+  if (argument) return "这个名称的具体含义待核实。";
   if (/^\s*:\s*\S/.test(tail) && /^(?:yml|yaml|css)$/.test(language)) {
     return "这里设置的" + (language === "css" ? "样式属性" : "配置键") + "，当前取值为 " + compact(tail.trimStart().slice(1)) + "。";
   }

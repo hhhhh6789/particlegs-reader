@@ -154,8 +154,13 @@ function showExpressions(parent, nodes, details = {}) {
         if (node.basicBuiltin) break;
         const detail = row(node, stepLabel(node), true, role);
         const method = name.split(".").at(-1);
-        const purpose = Object.hasOwn(details, method) ? details[method] : conciseCallPurpose(node) || node.result;
-        appendInlineCode(detail, purpose || "调用 " + quoteCode(name) + "，具体用途待核对。");
+        const written = Object.hasOwn(details, method) ? details[method] : "";
+        const purpose = conciseCallPurpose(node);
+        const result = node.result;
+        const usefulResult = result && !/^(?:张量|新张量|规约结果|转换后的对象|结果|返回值|调用的结果)[。.]?$/.test(result);
+        const explanation = [outcomeText(purpose), usefulResult && outcomeText(result)]
+          .filter((text, index, values) => text && values.indexOf(text) === index).join(" ");
+        appendInlineCode(detail, written || explanation || "这一步的具体用途和输出待核对。");
         showLaunchConfig(detail, node);
         if (node.target) expressionSourceLink(detail, ...node.target, "查看定义");
         break;
