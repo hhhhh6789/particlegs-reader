@@ -49,23 +49,41 @@ function showExpressionCall(parent, call, outer, written = null, effect = "") {
   const nested = [...(call.receiver || []), ...call.arguments.flatMap(argument => argument[2])];
   if (outer) {
     const parts = [];
-    if (purpose) parts.push(["作用", purpose]);
-    if (!written?.explainNestedInline && hasExpressionDetails(nested)) {
-      parts.push(["内部求值", section => showExpressions(section, nested)]);
+    const structured = !written?.explainNestedInline && hasExpressionDetails(nested);
+    if (structured) {
+      parts.push(["这行在做什么", written?.purpose || compoundSummary({effect}, call)]);
+      parts.push(["执行顺序", section => showExpressions(section, [call])]);
+      if (written?.result && written.result !== written.purpose) parts.push(["结果", written.result]);
+    } else {
+      if (purpose) parts.push(["作用", purpose]);
+      if (result && result !== purpose) parts.push(["结果", result]);
     }
-    if (result && result !== purpose) parts.push(["结果", result]);
     if (parts.length) showExplanationSections(parent, parts);
+    if (structured) return;
   } else {
     if (purpose) appendInlineCode(add(parent, "p"), purpose);
     if (result && result !== purpose) appendInlineCode(add(parent, "p"), result);
   }
+  showLaunchConfig(parent, call);
+  if (call.target) expressionSourceLink(parent, ...call.target, "查看定义");
+}
+
+function showLaunchConfig(parent, call) {
   if (call.launch) {
     const [grid, block, shared, stream] = call.launch.split(",").map(part => part.trim());
     const config = ["网格包含的线程块", "每个线程块的线程布局", "每块动态共享内存字节数", "CUDA 执行流"];
     showParameters(parent, [grid, block, shared, stream].flatMap((part, i) => part ? [[part, config[i] + "。"]] : []));
   }
-  if (call.target) expressionSourceLink(parent, ...call.target, "查看定义");
+}
 
+function outcomeText(text) {
+  return text ? text.replace(/[。\s]+$/, "") + "。" : "";
+}
+
+function conciseCallPurpose(call) {
+  const purpose = call.purpose || "";
+  // Older method notes repeated the entire expression on the left of the dot.
+  return purpose.replace(/^对 `[^`]+`\s*/, "");
 }
 
 function shortCallName(name) {
@@ -77,20 +95,23 @@ function showCollectionOverview(card, note) {
   appendInlineCode(add(card, "p", null, "statement-summary"), summary);
   if (!sections.length) return;
   showExplanationSections(card, sections.map(([title, content]) =>
-    [title, Array.isArray(content) ? part => expressionRows(part, content) : content]));
+    [title, content?.steps ? part => {
+      const list = add(part, "ol");
+      for (const step of content.steps) appendInlineCode(add(list, "li"), step);
+    } : Array.isArray(content) ? part => expressionRows(part, content) : content]));
 }
 
-function showExpressions(parent, nodes) {
+function showExpressions(parent, nodes, details = {}) {
   if (!nodes.length) return;
-  const list = add(parent, "dl", null, "expression-tree expression-steps");
+  const ordered = /\.(?:py|js|sh|bash)$/.test(activeFile.path);
+  const list = add(parent, ordered ? "ol" : "ul", null, "expression-tree expression-steps ordered-expression-steps");
   function row(node, label, labelCode = false, role = "") {
-    const entry = add(list, "div", null, "expression-node parameter-row");
+    const entry = add(list, "li", null, "expression-node");
     entry.dataset.kind = node.kind;
     entry.dataset.line = String(node.at);
-    const name = add(entry, "dt");
-    if (role) add(name, "small", role, "parameter-kind");
-    add(name, labelCode ? "code" : "strong", label);
-    return add(entry, "dd");
+    if (role) add(entry, "small", role, "parameter-kind");
+    add(entry, labelCode ? "code" : "strong", label);
+    return add(entry, "div", null, "expression-step-body");
   }
   function display(node, role = node.role) {
     switch (node.kind) {
@@ -101,11 +122,22 @@ function showExpressions(parent, nodes) {
         }
         break;
       case "and":
-      case "or":
-        for (const [, , children] of node.parts) {
-          for (const child of children) display(child, role || "参与条件判断");
+      case "or": {
+        if (!hasExpressionDetails(node.parts.flatMap(([, , children]) => children))) break;
+        const detail = row(node, "按顺序判断条件", false, role);
+        appendInlineCode(add(detail, "p"), node.kind === "and" ? "前一项为真时才继续检查下一项。" : "前一项为假时才继续检查下一项。");
+        for (const [label, text, children] of node.parts) {
+          appendInlineCode(add(detail, "p"), label + " " + quoteCode(children.length ? shortExpression(text) : text));
+          showExpressions(detail, children);
         }
         break;
+      }
+      case "index": {
+        for (const child of [...node.receiver, ...node.children]) display(child);
+        const detail = row(node, "[" + shortExpression(node.key) + "]", true);
+        appendInlineCode(detail, node.children.length ? "用算出的索引取出对应的值。" : "从算出的对象中取出索引对应的值。");
+        break;
+      }
       case "comprehension": {
         const detail = row(node, "逐项生成" + node.name, false, role);
         for (const [label, text] of node.parts) {
@@ -115,31 +147,33 @@ function showExpressions(parent, nodes) {
       }
       case "call": {
         const name = shortCallName(node.name);
-        for (const receiver of node.receiver || []) display(receiver, "给 " + name + "() 准备操作对象");
+        for (const receiver of node.receiver || []) display(receiver);
         for (const [, , children] of node.arguments) {
-          for (const child of children) display(child, node.basicBuiltin ? role : "参与 " + name + "() 的输入计算");
+          for (const child of children) display(child);
         }
         if (node.basicBuiltin) break;
-        const detail = row(node, name + "()", true, role);
-        showExpressionCall(detail, {...node, receiver: []}, false);
-        if (!detail.hasChildNodes()) {
-          appendInlineCode(detail, "调用的具体行为待核对。");
-        }
+        const detail = row(node, stepLabel(node), true, role);
+        const method = name.split(".").at(-1);
+        const purpose = Object.hasOwn(details, method) ? details[method] : conciseCallPurpose(node) || node.result;
+        appendInlineCode(detail, purpose || "调用 " + quoteCode(name) + "，具体用途待核对。");
+        showLaunchConfig(detail, node);
+        if (node.target) expressionSourceLink(detail, ...node.target, "查看定义");
         break;
       }
       case "lambda": {
         const detail = row(node, "lambda", true, role);
-        appendInlineCode(detail, (node.name ? "绑定参数 " + quoteCode(node.name) + "，再计算 " : "调用时计算 ") + quoteCode(node.text) + "。");
-        for (const child of node.children) display(child, "调用时求值");
+        appendInlineCode(detail, "创建函数供稍后调用" + (node.name ? "，参数为 " + quoteCode(node.name) : "") + "。");
+        showExpressions(detail, node.children);
         break;
       }
       default: {
         const detail = row(node, node.name || (node.kind === "choice" ? "条件表达式" : "表达式"), false, role);
         for (const [label, text, children] of node.parts || []) {
           if (children.length) {
-            for (const child of children) display(child, [role, label].filter(Boolean).join(" · "));
+            appendInlineCode(add(detail, "p"), label);
+            showExpressions(detail, children);
           } else {
-            appendInlineCode(add(detail, "p"), label + " " + quoteCode(text));
+            appendInlineCode(add(detail, "p"), label + " " + quoteCode(shortExpression(text)));
           }
         }
       }
@@ -147,6 +181,21 @@ function showExpressions(parent, nodes) {
   }
   for (const node of nodes) display(node);
   if (!list.hasChildNodes()) list.remove();
+}
+
+function shortExpression(text) {
+  return text.length > 55 ? text.slice(0, 54) + "…" : text;
+}
+
+function stepLabel(node) {
+  const name = shortCallName(node.name);
+  const args = node.arguments.map(([label, , children, metadata]) => {
+    const value = metadata?.value || label;
+    if (children.length || value.length > 18 || !/^(?:[\w.]+|-?\d+(?:\.\d+)?|["'][\w./-]+["'])$/.test(value)) return "…";
+    return metadata?.kind === "keyword" ? metadata.name + "=" + value : value;
+  });
+  const text = args.join(", ");
+  return shortExpression(name) + "(" + (text.length > 36 ? "…" : text) + ")";
 }
 
 function receiverChain(call) {
@@ -169,7 +218,7 @@ function showChainExplanation(card, chain, record, written) {
     + "整理成一行。输入形状为 " + quoteCode("(N, " + shape + ", 3)")
     + "，" + quoteCode("N") + " 是高斯数量，三个颜色通道对应 RGB。"
     + (shape === "K" ? quoteCode("K") + " 是每个颜色通道的非零阶球谐系数数量。" : "")
-    : written?.purpose || "从 " + quoteCode(chain[0].name) + " 开始，每次调用的结果交给下一个方法。";
+    : written?.purpose || compoundSummary(record, last);
   const detail = sh ? {
     detach: "返回数值相同、**断开梯度跟踪**的张量。",
     transpose: "**交换**第 " + quoteCode("1") + " 轴（系数）和第 " + quoteCode("2") + " 轴（RGB），形状从 " + quoteCode("(N, " + shape + ", 3)") + " 变为 "
@@ -181,32 +230,20 @@ function showChainExplanation(card, chain, record, written) {
   } : {};
   const result = sh ? quoteCode(sh[1]) + " 是形状为 " + quoteCode(shape === "K" ? "(N, 3*K)" : "(N, 3)")
     + " 的 NumPy 数组。每行对应一个高斯。"
-    : written?.result || [last.result, record.effect].filter(Boolean).join(" ") || "整条语句使用最后一次调用的返回值。";
+    : written?.result;
 
   showExplanationSections(card, [
     ["这行在做什么", purpose],
-    ["执行顺序", section => {
-      const list = add(section, "dl", null, "expression-steps");
-      for (const [index, step] of chain.entries()) {
-        const name = shortCallName(step.name).split(".").at(-1);
-        const item = add(list, "div", null, "parameter-row");
-        const term = add(item, "dt");
-        add(term, "small", String(index + 1), "parameter-kind");
-        const signature = step.arguments.map(([label, , , metadata]) =>
-          metadata?.kind === "keyword" ? metadata.name + "=" + metadata.value : metadata?.value || label);
-        add(term, "code", name + "(" + signature.join(", ") + ")");
-        const body = add(item, "dd");
-        appendInlineCode(body, detail[name] || [step.purpose, step !== last && step.result].filter(Boolean).join("。")
-          || "在上一步得到的对象上调用 " + quoteCode(name) + "。");
-        if (!detail[name] && step.arguments.length) {
-          const inside = step.arguments.flatMap(argument => argument[2]);
-          if (inside.length) showExpressions(body, inside);
-        }
-        if (step.target) expressionSourceLink(body, ...step.target, "查看定义");
-      }
-    }],
+    ["执行顺序", section => showExpressions(section, [last], detail)],
     ["结果", result]
-  ]);
+  ].filter(([, content]) => content));
+}
+
+function compoundSummary(record, call) {
+  const effect = record.effect?.startsWith("将 `") ? "将计算结果交给调用者。" : record.effect;
+  const purpose = conciseCallPurpose(call);
+  return [outcomeText(call.result || purpose || "调用 " + quoteCode(shortCallName(call.name))), effect]
+    .filter(Boolean).join(" ");
 }
 
 function showDefinitionResults(parent, outcomes) {

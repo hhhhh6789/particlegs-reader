@@ -877,6 +877,10 @@ aside { background: rgba(241, 246, 255, .52); }
 }
 .collection-set { margin-top: .55em; }
 .expression-steps > .parameter-row { padding-block: .45rem; min-width: 0; }
+.ordered-expression-steps { margin: .35rem 0; padding-inline-start: 1.5rem; }
+.ordered-expression-steps > li + li { margin-top: .55rem; }
+.ordered-expression-steps .expression-step-body { display: inline; margin-inline-start: .45em; }
+.ordered-expression-steps .expression-step-body p { margin-block: .2rem; }
 .expression-steps > .parameter-row > dd > p { margin: 0 0 .25rem; }
 .expression-steps > .parameter-row > dd > p:last-child { margin-bottom: 0; }
 @media (max-width: 435px) {
